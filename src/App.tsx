@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 
@@ -166,6 +166,7 @@ const cardData = [
 export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -176,6 +177,10 @@ export default function App() {
     }
     return () => { document.body.style.overflow = 'unset'; };
   }, [activeModal]);
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -198,10 +203,10 @@ export default function App() {
   const activeCardData = cardData.find(c => c.id === activeModal);
 
   return (
-    <div className="min-h-screen bg-[#FDFCF0] text-[#1F2937] font-sans selection:bg-[#D4AF37] selection:text-white">
+    <div className={`min-h-screen transition-colors duration-500 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-[#FDFCF0] text-[#1F2937]'} font-sans selection:bg-[#D4AF37] selection:text-white`}>
       
       {/* --- Header --- */}
-      <header className="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-[#D4AF37]/20 z-40 shadow-sm">
+      <header className={`fixed top-0 w-full ${isDarkMode ? 'bg-gray-900/95 border-gray-800' : 'bg-white/95 border-[#D4AF37]/20'} backdrop-blur-sm border-b z-40 shadow-sm transition-colors duration-500`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
           
           {/* Logo */}
@@ -209,26 +214,35 @@ export default function App() {
             className="flex items-center gap-3 cursor-pointer group" 
             onClick={() => scrollToSection('home')}
           >
-            <div className="relative w-12 h-12 flex items-center justify-center transform group-hover:rotate-90 transition-transform duration-700">
-              <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-md">
-                <defs>
-                  <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#D4AF37" />
-                    <stop offset="100%" stopColor="#B8860B" />
-                  </linearGradient>
-                </defs>
-                <g transform="translate(50 50) scale(0.85)">
-                  <rect x="-30" y="-30" width="60" height="60" fill="none" stroke="url(#logoGrad)" strokeWidth="8" transform="rotate(0)" />
-                  <rect x="-30" y="-30" width="60" height="60" fill="none" stroke="url(#logoGrad)" strokeWidth="8" transform="rotate(45)" />
-                  <circle cx="0" cy="0" r="12" fill="url(#logoGrad)" />
-                </g>
-              </svg>
+            <div className="relative w-14 h-14 flex items-center justify-center">
+              {/* Rotating Ring */}
+              <motion.div 
+                animate={{ rotate: 360 }}
+                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                className="absolute inset-0 border-2 border-dashed border-[#D4AF37] rounded-full"
+              />
+              {/* Inner Circle with Logo */}
+              <div className="relative w-11 h-11 bg-white rounded-full overflow-hidden border border-[#D4AF37]/30 flex items-center justify-center shadow-inner">
+                <svg viewBox="0 0 100 100" className="w-full h-full p-1">
+                  <defs>
+                    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#D4AF37" />
+                      <stop offset="100%" stopColor="#AA8C2C" />
+                    </linearGradient>
+                  </defs>
+                  <g transform="translate(50 50) scale(0.85)">
+                    <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGrad)" strokeWidth="6" transform="rotate(0)" />
+                    <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGrad)" strokeWidth="6" transform="rotate(45)" />
+                    <circle cx="0" cy="0" r="15" fill="url(#logoGrad)" />
+                  </g>
+                </svg>
+              </div>
             </div>
             <div className="flex flex-col justify-center">
-              <span className="font-serif text-2xl md:text-3xl font-bold text-[#064E3B] leading-none tracking-wide">
+              <span className={`font-serif text-2xl md:text-3xl font-bold leading-none tracking-wide ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>
                 আল-<span className="text-[#D4AF37]">ইনসাফ</span>
               </span>
-              <span className="text-[10px] text-gray-500 tracking-[0.2em] uppercase font-medium mt-1">
+              <span className={`text-[10px] tracking-[0.2em] uppercase font-medium mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                 Al-Insaf Organization
               </span>
             </div>
@@ -236,18 +250,36 @@ export default function App() {
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8">
-            <button onClick={() => scrollToSection('home')} className="text-sm font-medium uppercase tracking-wider text-gray-600 hover:text-[#064E3B] transition-colors">হোম</button>
-            <button onClick={() => scrollToSection('explore')} className="text-sm font-medium uppercase tracking-wider text-gray-600 hover:text-[#064E3B] transition-colors">বিস্তারিত</button>
-            <button onClick={() => scrollToSection('contact')} className="text-sm font-medium uppercase tracking-wider text-gray-600 hover:text-[#064E3B] transition-colors">যোগাযোগ</button>
+            <button onClick={() => scrollToSection('home')} className={`text-sm font-medium uppercase tracking-wider transition-colors ${isDarkMode ? 'text-gray-300 hover:text-[#D4AF37]' : 'text-gray-600 hover:text-[#064E3B]'}`}>হোম</button>
+            <button onClick={() => scrollToSection('explore')} className={`text-sm font-medium uppercase tracking-wider transition-colors ${isDarkMode ? 'text-gray-300 hover:text-[#D4AF37]' : 'text-gray-600 hover:text-[#064E3B]'}`}>বিস্তারিত</button>
+            <button onClick={() => scrollToSection('contact')} className={`text-sm font-medium uppercase tracking-wider transition-colors ${isDarkMode ? 'text-gray-300 hover:text-[#D4AF37]' : 'text-gray-600 hover:text-[#064E3B]'}`}>যোগাযোগ</button>
+            
+            {/* Dark Mode Toggle */}
+            <button 
+              onClick={toggleDarkMode}
+              className={`p-2 rounded-full transition-colors ${isDarkMode ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              title={isDarkMode ? "লাইট মোড" : "ডার্ক মোড"}
+            >
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+
             <button onClick={() => openModal('join')} className="bg-[#064E3B] text-white px-5 py-2 rounded-full text-sm font-medium uppercase tracking-wider hover:bg-[#064E3B]/90 transition-all shadow-md hover:shadow-lg">
               যুক্ত হোন
             </button>
           </nav>
 
           {/* Mobile Menu Toggle */}
-          <button className="md:hidden text-[#064E3B]" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-            {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
-          </button>
+          <div className="flex items-center gap-4 md:hidden">
+            <button 
+              onClick={toggleDarkMode}
+              className={`p-2 rounded-full transition-colors ${isDarkMode ? 'bg-gray-800 text-yellow-400' : 'bg-gray-100 text-gray-600'}`}
+            >
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button className={`${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+              {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Nav */}
@@ -257,12 +289,12 @@ export default function App() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="md:hidden bg-white border-b border-[#D4AF37]/20 overflow-hidden"
+              className={`md:hidden border-b overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-[#D4AF37]/20'}`}
             >
               <div className="px-4 py-4 flex flex-col gap-4">
-                <button onClick={() => scrollToSection('home')} className="text-left font-medium text-gray-700 py-2 border-b border-gray-50">হোম</button>
-                <button onClick={() => scrollToSection('explore')} className="text-left font-medium text-gray-700 py-2 border-b border-gray-50">বিস্তারিত</button>
-                <button onClick={() => scrollToSection('contact')} className="text-left font-medium text-gray-700 py-2 border-b border-gray-50">যোগাযোগ</button>
+                <button onClick={() => scrollToSection('home')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>হোম</button>
+                <button onClick={() => scrollToSection('explore')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>বিস্তারিত</button>
+                <button onClick={() => scrollToSection('contact')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>যোগাযোগ</button>
                 <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="bg-[#064E3B] text-white px-5 py-3 rounded-lg text-center font-medium mt-2">
                   যুক্ত হোন
                 </button>
@@ -278,7 +310,7 @@ export default function App() {
         {/* Hero Section */}
         <section id="home" className="relative bg-[#064E3B] text-white py-24 md:py-32 overflow-hidden">
           {/* Subtle Islamic Geometric Pattern Overlay */}
-          <div className="absolute inset-0 opacity-5">
+          <div className="absolute inset-0 opacity-10 z-0 pointer-events-none">
             <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <pattern id="hero-pattern" width="60" height="60" patternUnits="userSpaceOnUse">
@@ -295,7 +327,33 @@ export default function App() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
+              className="flex flex-col items-center"
             >
+              {/* Prominent Logo in Hero */}
+              <div className="mb-8 relative">
+                <motion.div 
+                  animate={{ rotate: -360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  className="absolute -inset-4 border border-[#D4AF37]/30 rounded-full"
+                />
+                <div className="w-24 h-24 md:w-32 md:w-32 bg-white rounded-full p-2 shadow-2xl border-2 border-[#D4AF37] flex items-center justify-center">
+                  <svg viewBox="0 0 100 100" className="w-full h-full p-2">
+                    <use href="#logoGrad" /> {/* Reusing gradient if possible, but better redefine or use simple color */}
+                    <defs>
+                      <linearGradient id="logoGradHero" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#D4AF37" />
+                        <stop offset="100%" stopColor="#AA8C2C" />
+                      </linearGradient>
+                    </defs>
+                    <g transform="translate(50 50) scale(0.85)">
+                      <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGradHero)" strokeWidth="6" transform="rotate(0)" />
+                      <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGradHero)" strokeWidth="6" transform="rotate(45)" />
+                      <circle cx="0" cy="0" r="15" fill="url(#logoGradHero)" />
+                    </g>
+                  </svg>
+                </div>
+              </div>
+
               <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">আল-ইনসাফ এ আপনাকে স্বাগতম</span>
               <h1 className="font-serif text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight">
                 নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span>
@@ -303,23 +361,37 @@ export default function App() {
               <p className="text-lg md:text-xl text-gray-200 max-w-2xl mx-auto mb-10 font-light leading-relaxed">
                 স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ। একটি টেকসই ও হালাল ইকোসিস্টেম তৈরিতে আমাদের সাথে যুক্ত হোন।
               </p>
-              <button 
-                onClick={() => openModal('join')}
-                className="bg-[#D4AF37] text-[#064E3B] px-8 py-4 rounded-full font-bold text-lg hover:bg-white transition-colors shadow-xl hover:shadow-2xl transform hover:-translate-y-1 duration-300"
-              >
-                সদস্য হোন
-              </button>
+              
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button 
+                  onClick={() => openModal('join')}
+                  className="bg-[#D4AF37] text-[#064E3B] px-8 py-4 rounded-full font-bold text-lg hover:bg-white transition-colors shadow-xl hover:shadow-2xl transform hover:-translate-y-1 duration-300 w-full sm:w-auto"
+                >
+                  সদস্য হোন
+                </button>
+                
+                {/* Member Count Badge */}
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 px-6 py-4 rounded-full flex items-center gap-3 shadow-lg w-full sm:w-auto">
+                  <div className="w-10 h-10 bg-[#D4AF37] rounded-full flex items-center justify-center text-[#064E3B]">
+                    <Users size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs text-gray-300 uppercase tracking-wider font-bold">আমাদের পরিবার</p>
+                    <p className="text-lg font-bold text-white">২০০+ সদস্য</p>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
         </section>
 
         {/* Interactive Cards Section */}
-        <section id="explore" className="py-24 bg-[#FDFCF0]">
+        <section id="explore" className={`py-24 transition-colors duration-500 ${isDarkMode ? 'bg-gray-800' : 'bg-[#FDFCF0]'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="font-serif text-3xl md:text-4xl font-bold text-[#064E3B] mb-4">আল-ইনসাফ সম্পর্কে জানুন</h2>
+              <h2 className={`font-serif text-3xl md:text-4xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>আল-ইনসাফ সম্পর্কে জানুন</h2>
               <div className="w-16 h-1 bg-[#D4AF37] mx-auto rounded-full"></div>
-              <p className="mt-4 text-gray-600 max-w-2xl mx-auto">আমাদের লক্ষ্য, কার্যক্রম এবং কীভাবে আপনি আমাদের ক্রমবর্ধমান কমিউনিটির অংশ হতে পারেন, সে সম্পর্কে বিস্তারিত জানতে নিচের কার্ডগুলোতে ক্লিক করুন।</p>
+              <p className={`mt-4 max-w-2xl mx-auto ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>আমাদের লক্ষ্য, কার্যক্রম এবং কীভাবে আপনি আমাদের ক্রমবর্ধমান কমিউনিটির অংশ হতে পারেন, সে সম্পর্কে বিস্তারিত জানতে নিচের কার্ডগুলোতে ক্লিক করুন।</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
@@ -333,13 +405,13 @@ export default function App() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
-                  className={`bg-white p-8 rounded-2xl shadow-sm hover:shadow-xl border border-[#D4AF37]/20 transition-all text-left group flex flex-col items-start ${card.id === 'join' ? 'sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-white to-[#D1FAE5]/30' : ''}`}
+                  className={`${isDarkMode ? 'bg-gray-900 border-gray-700 hover:border-[#D4AF37]/50' : 'bg-white border-[#D4AF37]/20 hover:shadow-xl'} p-8 rounded-2xl shadow-sm border transition-all text-left group flex flex-col items-start ${card.id === 'join' ? 'sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-white to-[#D1FAE5]/30 dark:from-gray-900 dark:to-gray-800' : ''}`}
                 >
-                  <div className="w-16 h-16 rounded-2xl bg-[#FDFCF0] border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] mb-6 group-hover:bg-[#064E3B] group-hover:text-white transition-colors duration-300">
+                  <div className={`w-16 h-16 rounded-2xl border flex items-center justify-center text-[#D4AF37] mb-6 group-hover:bg-[#064E3B] group-hover:text-white transition-colors duration-300 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-[#FDFCF0] border-[#D4AF37]/30'}`}>
                     {card.icon}
                   </div>
-                  <h3 className="font-serif text-2xl font-bold text-[#064E3B] mb-3">{card.title}</h3>
-                  <p className="text-gray-500 text-sm mb-6 flex-1">
+                  <h3 className={`font-serif text-2xl font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>{card.title}</h3>
+                  <p className={`text-sm mb-6 flex-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     {card.id === 'intro' && 'আমাদের সম্পর্কে বিস্তারিত জানুন এবং আমাদের মূলনীতিগুলো সম্পর্কে ধারণা নিন।'}
                     {card.id === 'activities' && 'আমাদের চলমান, ভবিষ্যৎ এবং সামাজিক কার্যক্রমের বিস্তারিত তালিকা।'}
                     {card.id === 'goals' && 'আমাদের দীর্ঘমেয়াদী লক্ষ্য এবং একটি আদর্শ সমাজ গঠনের উদ্দেশ্যসমূহ।'}
@@ -356,46 +428,46 @@ export default function App() {
         </section>
 
         {/* Contact Section */}
-        <section id="contact" className="py-24 bg-white border-t border-gray-100">
+        <section id="contact" className={`py-24 transition-colors duration-500 border-t ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
               
               {/* Contact Info */}
               <div>
-                <h2 className="font-serif text-3xl md:text-4xl font-bold text-[#064E3B] mb-4">যোগাযোগ করুন</h2>
+                <h2 className={`font-serif text-3xl md:text-4xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>যোগাযোগ করুন</h2>
                 <div className="w-16 h-1 bg-[#D4AF37] rounded-full mb-8"></div>
-                <p className="text-gray-600 mb-10 leading-relaxed">
+                <p className={`mb-10 leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   আমাদের উদ্যোগ সম্পর্কে কোনো প্রশ্ন আছে বা যুক্ত হতে চান? নিচের যেকোনো মাধ্যমে আমাদের সাথে যোগাযোগ করুন। আমরা সবসময় আপনার সহায়তায় প্রস্তুত।
                 </p>
                 
                 <div className="space-y-6">
-                  <div className="flex items-center gap-4 p-4 bg-[#FDFCF0] rounded-xl border border-[#D4AF37]/20">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-[#064E3B] shadow-sm">
+                  <div className={`flex items-center gap-4 p-4 rounded-xl border transition-colors duration-500 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-[#FDFCF0] border-[#D4AF37]/20'}`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm ${isDarkMode ? 'bg-gray-900 text-[#D4AF37]' : 'bg-white text-[#064E3B]'}`}>
                       <Phone size={24} />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 font-medium">কল করুন (বিকাশ/নগদ পার্সোনাল)</p>
-                      <p className="text-lg font-bold text-[#064E3B]">01880917816</p>
+                      <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>কল করুন (বিকাশ/নগদ পার্সোনাল)</p>
+                      <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>01880917816</p>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 p-4 bg-[#FDFCF0] rounded-xl border border-[#D4AF37]/20">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-green-600 shadow-sm">
+                  <div className={`flex items-center gap-4 p-4 rounded-xl border transition-colors duration-500 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-[#FDFCF0] border-[#D4AF37]/20'}`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm ${isDarkMode ? 'bg-gray-900 text-green-500' : 'bg-white text-green-600'}`}>
                       <MessageCircle size={24} />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 font-medium">হোয়াটসঅ্যাপ</p>
-                      <p className="text-lg font-bold text-[#064E3B]">01880917816</p>
+                      <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>হোয়াটসঅ্যাপ</p>
+                      <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>01880917816</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 p-4 bg-[#FDFCF0] rounded-xl border border-[#D4AF37]/20">
-                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-[#064E3B] shadow-sm">
+                  <div className={`flex items-center gap-4 p-4 rounded-xl border transition-colors duration-500 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-[#FDFCF0] border-[#D4AF37]/20'}`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm ${isDarkMode ? 'bg-gray-900 text-[#D4AF37]' : 'bg-white text-[#064E3B]'}`}>
                       <Mail size={24} />
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 font-medium">ইমেইল</p>
-                      <p className="text-lg font-bold text-[#064E3B]">alinsaf34@gmail.com</p>
+                      <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>ইমেইল</p>
+                      <p className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>alinsaf34@gmail.com</p>
                     </div>
                   </div>
                 </div>
