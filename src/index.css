@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary-green: #064E3B;
+  --color-sage-green: #D1FAE5;
+  --color-gold: #D4AF37;
+  --color-gold-light: #FBF7E9;
+  --color-white: #FFFFFF;
+  --color-cream: #FDFCF0;
+  --color-text-main: #1F2937;
+  --color-text-light: #6B7280;
+  
+  --font-sans: 'Hind Siliguri', 'Kalpurush', sans-serif;
+  --font-serif: 'Bangla Headline', 'Hind Siliguri', 'Kalpurush', serif;
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-text-main);
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+}
