@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
+
+const logo = "https://i.postimg.cc/7LLRy4WW/Whats-App-Image-2026-03-16-at-7-29-35-PM.jpg";
 
 // --- Data for Cards & Modals ---
 const cardData = [
@@ -160,6 +162,53 @@ const cardData = [
         </div>
       </div>
     )
+  },
+  {
+    id: 'salary',
+    title: 'বেতন রিপোর্ট',
+    icon: <Wallet size={32} />,
+    content: (
+      <div className="space-y-6 text-gray-700">
+        <div className="bg-[#FDFCF0] p-5 rounded-2xl border border-[#D4AF37]/30 shadow-sm">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-[#064E3B] rounded-xl flex items-center justify-center text-[#D4AF37]">
+              <Lock size={24} />
+            </div>
+            <div>
+              <h4 className="font-bold text-[#064E3B] text-lg">কর্মচারী পোর্টাল</h4>
+              <p className="text-xs text-gray-500">আপনার কোড নম্বর ব্যবহার করে বেতন দেখুন</p>
+            </div>
+          </div>
+          
+          <p className="text-sm leading-relaxed mb-6">
+            আল-ইনসাফ অর্গানাইজেশনের সকল কর্মকর্তা ও কর্মচারীদের স্বচ্ছতা নিশ্চিত করতে এই পোর্টালটি তৈরি করা হয়েছে। 
+            নিচের লিঙ্কে ক্লিক করে আপনার ব্যক্তিগত কোড নম্বর প্রদান করে মাসিক বা মোট বেতনের বিস্তারিত রিপোর্ট দেখতে পারবেন।
+          </p>
+
+          <motion.a 
+            href="https://tinyurl.com/al-insafreport" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className="w-full bg-[#064E3B] text-[#D4AF37] font-bold py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-[#08634b] transition-all shadow-lg group"
+          >
+            রিপোর্ট দেখুন <ExternalLink size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+          </motion.a>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 bg-white rounded-xl border border-gray-100 flex items-start gap-3">
+            <div className="mt-1 text-green-600"><ShieldCheck size={18} /></div>
+            <p className="text-xs text-gray-500">আপনার তথ্য সম্পূর্ণ সুরক্ষিত এবং গোপন রাখা হয়।</p>
+          </div>
+          <div className="p-4 bg-white rounded-xl border border-gray-100 flex items-start gap-3">
+            <div className="mt-1 text-blue-600"><Info size={18} /></div>
+            <p className="text-xs text-gray-500">কোনো সমস্যা হলে সরাসরি কর্তৃপক্ষের সাথে যোগাযোগ করুন।</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 ];
 
@@ -222,20 +271,13 @@ export default function App() {
                 className="absolute inset-0 border-2 border-dashed border-[#D4AF37] rounded-full"
               />
               {/* Inner Circle with Logo */}
-              <div className="relative w-11 h-11 bg-white rounded-full overflow-hidden border border-[#D4AF37]/30 flex items-center justify-center shadow-inner">
-                <svg viewBox="0 0 100 100" className="w-full h-full p-1">
-                  <defs>
-                    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#D4AF37" />
-                      <stop offset="100%" stopColor="#AA8C2C" />
-                    </linearGradient>
-                  </defs>
-                  <g transform="translate(50 50) scale(0.85)">
-                    <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGrad)" strokeWidth="6" transform="rotate(0)" />
-                    <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGrad)" strokeWidth="6" transform="rotate(45)" />
-                    <circle cx="0" cy="0" r="15" fill="url(#logoGrad)" />
-                  </g>
-                </svg>
+              <div className="relative w-11 h-11 bg-[#0a192f] rounded-full overflow-hidden border border-[#D4AF37]/30 flex items-center justify-center shadow-inner">
+                <img 
+                  src={logo} 
+                  alt="Al-Insaf Logo" 
+                  className="w-full h-full object-contain scale-110"
+                  referrerPolicy="no-referrer"
+                />
               </div>
             </div>
             <div className="flex flex-col justify-center">
@@ -336,21 +378,13 @@ export default function App() {
                   transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
                   className="absolute -inset-4 border border-[#D4AF37]/30 rounded-full"
                 />
-                <div className="w-24 h-24 md:w-32 md:w-32 bg-white rounded-full p-2 shadow-2xl border-2 border-[#D4AF37] flex items-center justify-center">
-                  <svg viewBox="0 0 100 100" className="w-full h-full p-2">
-                    <use href="#logoGrad" /> {/* Reusing gradient if possible, but better redefine or use simple color */}
-                    <defs>
-                      <linearGradient id="logoGradHero" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#D4AF37" />
-                        <stop offset="100%" stopColor="#AA8C2C" />
-                      </linearGradient>
-                    </defs>
-                    <g transform="translate(50 50) scale(0.85)">
-                      <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGradHero)" strokeWidth="6" transform="rotate(0)" />
-                      <rect x="-35" y="-35" width="70" height="70" fill="none" stroke="url(#logoGradHero)" strokeWidth="6" transform="rotate(45)" />
-                      <circle cx="0" cy="0" r="15" fill="url(#logoGradHero)" />
-                    </g>
-                  </svg>
+                <div className="w-24 h-24 md:w-32 md:w-32 bg-[#0a192f] rounded-full p-2 shadow-2xl border-2 border-[#D4AF37] overflow-hidden flex items-center justify-center">
+                  <img 
+                    src={logo} 
+                    alt="Al-Insaf Logo Large" 
+                    className="w-full h-full object-contain scale-110"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
               </div>
 
@@ -505,20 +539,13 @@ export default function App() {
       <footer className="bg-[#043326] text-white py-12 border-t border-[#D4AF37]/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10">
-              <svg viewBox="0 0 100 100" className="w-full h-full">
-                <defs>
-                  <linearGradient id="footerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#D4AF37" />
-                    <stop offset="100%" stopColor="#FBF7E9" />
-                  </linearGradient>
-                </defs>
-                <g transform="translate(50 50) scale(0.85)">
-                  <rect x="-30" y="-30" width="60" height="60" fill="none" stroke="url(#footerGrad)" strokeWidth="8" transform="rotate(0)" />
-                  <rect x="-30" y="-30" width="60" height="60" fill="none" stroke="url(#footerGrad)" strokeWidth="8" transform="rotate(45)" />
-                  <circle cx="0" cy="0" r="12" fill="url(#footerGrad)" />
-                </g>
-              </svg>
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-[#0a192f] border border-[#D4AF37]/30 flex items-center justify-center">
+              <img 
+                src={logo} 
+                alt="Al-Insaf Logo Footer" 
+                className="w-full h-full object-contain scale-110"
+                referrerPolicy="no-referrer"
+              />
             </div>
             <div className="flex flex-col justify-center">
               <span className="font-serif text-xl md:text-2xl font-bold text-white leading-none tracking-wide">
