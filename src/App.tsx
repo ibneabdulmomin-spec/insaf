@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 
@@ -162,60 +162,23 @@ const cardData = [
         </div>
       </div>
     )
-  },
-  {
-    id: 'salary',
-    title: 'বেতন রিপোর্ট',
-    icon: <Wallet size={32} />,
-    content: (
-      <div className="space-y-6 text-gray-700">
-        <div className="bg-[#FDFCF0] p-5 rounded-2xl border border-[#D4AF37]/30 shadow-sm">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 bg-[#064E3B] rounded-xl flex items-center justify-center text-[#D4AF37]">
-              <Lock size={24} />
-            </div>
-            <div>
-              <h4 className="font-bold text-[#064E3B] text-lg">কর্মচারী পোর্টাল</h4>
-              <p className="text-xs text-gray-500">আপনার কোড নম্বর ব্যবহার করে বেতন দেখুন</p>
-            </div>
-          </div>
-          
-          <p className="text-sm leading-relaxed mb-6">
-            আল-ইনসাফ অর্গানাইজেশনের সকল কর্মকর্তা ও কর্মচারীদের স্বচ্ছতা নিশ্চিত করতে এই পোর্টালটি তৈরি করা হয়েছে। 
-            নিচের লিঙ্কে ক্লিক করে আপনার ব্যক্তিগত কোড নম্বর প্রদান করে মাসিক বা মোট বেতনের বিস্তারিত রিপোর্ট দেখতে পারবেন।
-          </p>
-
-          <motion.a 
-            href="https://tinyurl.com/al-insafreport" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full bg-[#064E3B] text-[#D4AF37] font-bold py-4 rounded-xl flex items-center justify-center gap-3 hover:bg-[#08634b] transition-all shadow-lg group"
-          >
-            রিপোর্ট দেখুন <ExternalLink size={20} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-          </motion.a>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-white rounded-xl border border-gray-100 flex items-start gap-3">
-            <div className="mt-1 text-green-600"><ShieldCheck size={18} /></div>
-            <p className="text-xs text-gray-500">আপনার তথ্য সম্পূর্ণ সুরক্ষিত এবং গোপন রাখা হয়।</p>
-          </div>
-          <div className="p-4 bg-white rounded-xl border border-gray-100 flex items-start gap-3">
-            <div className="mt-1 text-blue-600"><Info size={18} /></div>
-            <p className="text-xs text-gray-500">কোনো সমস্যা হলে সরাসরি কর্তৃপক্ষের সাথে যোগাযোগ করুন।</p>
-          </div>
-        </div>
-      </div>
-    )
   }
 ];
 
 export default function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setIsMoreMenuOpen(false);
+    if (isMoreMenuOpen) {
+      window.addEventListener('click', handleClickOutside);
+    }
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [isMoreMenuOpen]);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -296,6 +259,49 @@ export default function App() {
             <button onClick={() => scrollToSection('explore')} className={`text-sm font-medium uppercase tracking-wider transition-colors ${isDarkMode ? 'text-gray-300 hover:text-[#D4AF37]' : 'text-gray-600 hover:text-[#064E3B]'}`}>বিস্তারিত</button>
             <button onClick={() => scrollToSection('contact')} className={`text-sm font-medium uppercase tracking-wider transition-colors ${isDarkMode ? 'text-gray-300 hover:text-[#D4AF37]' : 'text-gray-600 hover:text-[#064E3B]'}`}>যোগাযোগ</button>
             
+            {/* More Menu (Three Dots) */}
+            <div className="relative">
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIsMoreMenuOpen(!isMoreMenuOpen); }}
+                className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'}`}
+                title="আরও"
+              >
+                <MoreVertical size={20} />
+              </button>
+              
+              <AnimatePresence>
+                {isMoreMenuOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className={`absolute right-0 mt-2 w-56 rounded-xl shadow-xl border overflow-hidden z-50 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}
+                  >
+                    <div className={`p-3 border-b border-gray-100 ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                      <p className={`text-[11px] leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        আপনি যদি আমাদের একজন সম্মানিত শেয়ারহোল্ডার হয়ে থাকেন তাহলে আপনার নির্দিষ্ট কোড দিয়ে আপনার জমাকৃত প্রিমিয়াম দেখতে এখানে ক্লিক করুন।
+                      </p>
+                    </div>
+                    <div className="p-2">
+                      <a 
+                        href="https://tinyurl.com/al-insafreport" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-[#064E3B]/10 text-[#064E3B] flex items-center justify-center">
+                          <PieChart size={18} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold">রিপোর্ট দেখুন</span>
+                        </div>
+                      </a>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             {/* Dark Mode Toggle */}
             <button 
               onClick={toggleDarkMode}
@@ -337,6 +343,22 @@ export default function App() {
                 <button onClick={() => scrollToSection('home')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>হোম</button>
                 <button onClick={() => scrollToSection('explore')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>বিস্তারিত</button>
                 <button onClick={() => scrollToSection('contact')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>যোগাযোগ</button>
+                
+                <div className={`py-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-50'}`}>
+                  <p className={`text-[11px] leading-relaxed mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    আপনি যদি আমাদের একজন সম্মানিত শেয়ারহোল্ডার হয়ে থাকেন তাহলে আপনার নির্দিষ্ট কোড দিয়ে আপনার জমাকৃত প্রিমিয়াম দেখতে এখানে ক্লিক করুন।
+                  </p>
+                  <a 
+                    href="https://tinyurl.com/al-insafreport" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}
+                  >
+                    <PieChart size={20} className="text-[#D4AF37]" />
+                    <span className="font-medium">রিপোর্ট দেখুন</span>
+                  </a>
+                </div>
+
                 <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="bg-[#064E3B] text-white px-5 py-3 rounded-lg text-center font-medium mt-2">
                   যুক্ত হোন
                 </button>
