@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System users including shareholders and employees",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "shareholder", "employee"] },
+        "disabled": { "type": "boolean", "default": false },
+        "code": { "type": "string", "description": "Unique identification code" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "ShareholderReport": {
+      "title": "Shareholder Report",
+      "description": "Monthly payment reports for shareholders",
+      "type": "object",
+      "properties": {
+        "shareholderCode": { "type": "string" },
+        "month": { "type": "string" },
+        "amount": { "type": "number" },
+        "premiumAmount": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["shareholderCode", "month", "amount"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data"
+    },
+    "/reports/{reportId}": {
+      "schema": "ShareholderReport",
+      "description": "Shareholder payment reports"
+    }
+  }
+}
