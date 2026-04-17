@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 import { auth, db } from './firebase';
@@ -73,6 +74,7 @@ export default function App() {
   const [editData, setEditData] = useState<any>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
+  const [adminTab, setAdminTab] = useState<'overview' | 'settings' | 'users'>('overview');
 
   // Firestore Site Content Listener
   useEffect(() => {
@@ -142,8 +144,11 @@ export default function App() {
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userDoc = await getDoc(userDocRef);
           
+          const isAdminEmail = currentUser.email === 'ibne.abdul.momin@gmail.com' || 
+                               currentUser.email === 'ibneabdulmomin@gmail.com' ||
+                               currentUser.email === 'alinsaf34@gmail.com';
+          
           if (!userDoc.exists()) {
-            const isAdminEmail = currentUser.email === 'ibne.abdul.momin@gmail.com' || currentUser.email === 'alinsaf34@gmail.com';
             const newProfile = {
               uid: currentUser.uid,
               email: currentUser.email,
@@ -156,6 +161,10 @@ export default function App() {
             setUserProfile(newProfile);
           } else {
             const profileData = userDoc.data();
+            if (profileData.role !== 'admin' && isAdminEmail) {
+              await updateDoc(userDocRef, { role: 'admin' });
+              profileData.role = 'admin';
+            }
             if (profileData.disabled) {
               await signOut(auth);
               setUser(null);
@@ -191,9 +200,15 @@ export default function App() {
   const startEditing = (section: string) => {
     setIsEditing(section);
     setEditData({ ...siteContent });
-    if (section === 'users') {
+    if (section === 'users' || adminTab === 'overview') {
       fetchUsers();
     }
+  };
+
+  const openAdminModal = () => {
+    setAdminTab('overview');
+    setActiveModal('admin-settings');
+    fetchUsers();
   };
 
   const fetchUsers = async () => {
@@ -539,7 +554,7 @@ export default function App() {
                         <span className="text-sm font-bold">রিপোর্ট দেখুন</span>
                       </a>
                       {userProfile?.role === 'admin' && (
-                        <button onClick={() => { openModal('admin-settings'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <button onClick={() => { openAdminModal(); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
                           <Settings size={18} className="text-[#D4AF37]" /><span className="text-sm font-bold">অ্যাডমিন সেটিংস</span>
                         </button>
                       )}
@@ -584,7 +599,7 @@ export default function App() {
                       <div className="flex flex-col"><span className="text-sm font-bold">{user.displayName}</span><span className="text-[10px] text-gray-500">{user.email}</span></div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      {userProfile?.role === 'admin' && (<button onClick={() => { openModal('admin-settings'); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 text-sm font-bold text-[#D4AF37]"><Settings size={16} /> অ্যাডমিন সেটিংস</button>)}
+                      {userProfile?.role === 'admin' && (<button onClick={() => { openAdminModal(); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 text-sm font-bold text-[#D4AF37]"><Settings size={16} /> অ্যাডমিন সেটিংস</button>)}
                       <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-bold text-red-500"><LogOut size={16} /> লগআউট</button>
                     </div>
                   </div>
@@ -702,85 +717,206 @@ export default function App() {
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
               {activeModal === 'admin-settings' ? (
                 <>
-                  <div className="flex items-center justify-between p-6 bg-[#064E3B] text-white">
-                    <div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-[#D4AF37] text-[#064E3B] flex items-center justify-center"><Settings size={28} /></div><h2 className="font-serif text-2xl font-bold">অ্যাডমিন সেটিংস</h2></div>
-                    <button onClick={closeModal} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center"><X size={24} /></button>
+                  <div className="flex items-center justify-between p-6 bg-[#064E3B] text-white shrink-0">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-[#D4AF37] text-[#064E3B] flex items-center justify-center transform rotate-3 shadow-lg">
+                        <Settings size={28} />
+                      </div>
+                      <div>
+                        <h2 className="font-serif text-2xl font-bold">অ্যাডমিন ড্যাশবোর্ড</h2>
+                        <p className="text-[10px] text-[#D4AF37]/80 uppercase tracking-widest font-bold font-sans">Organization Control Center</p>
+                      </div>
+                    </div>
+                    <button onClick={closeModal} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"><X size={24} /></button>
                   </div>
-                  <div className="p-6 overflow-y-auto flex-1 bg-gray-50 custom-scrollbar">
-                    {isEditing ? (
+
+                  <div className="flex border-b shrink-0 bg-white px-2 overflow-x-auto no-scrollbar">
+                    <button onClick={() => { setAdminTab('overview'); setIsEditing(null); fetchUsers(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'overview' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <LayoutDashboard size={16} /> ওভারভিউ
+                    </button>
+                    <button onClick={() => { setAdminTab('settings'); setIsEditing(null); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'settings' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <Database size={16} /> সাইট কন্টেন্ট
+                    </button>
+                    <button onClick={() => { setAdminTab('users'); setIsEditing(null); fetchUsers(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'users' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <Users size={16} /> ইউজার লিস্ট
+                    </button>
+                  </div>
+
+                  <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-[#FDFCF0]/30 custom-scrollbar">
+                    {adminTab === 'overview' ? (
+                      <div className="space-y-8 animate-in fade-in duration-500">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4 transition-transform hover:scale-[1.02]">
+                            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center"><Users size={24} /></div>
+                            <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">রজিস্ট্রার্ড সদস্য</p><h3 className="text-xl font-serif font-bold text-[#064E3B]">{usersList.length}</h3></div>
+                          </div>
+                          <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4 transition-transform hover:scale-[1.02]">
+                            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center"><Activity size={24} /></div>
+                            <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">চলমান প্রজেক্ট</p><h3 className="text-xl font-serif font-bold text-[#064E3B]">{siteContent?.activitiesRunning?.length || 0}</h3></div>
+                          </div>
+                          <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4 transition-transform hover:scale-[1.02]">
+                            <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center"><PieChart size={24} /></div>
+                            <div><p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">সামাজিক কাজ</p><h3 className="text-xl font-serif font-bold text-[#064E3B]">{siteContent?.activitiesSocial?.length || 0}</h3></div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                            <h4 className="font-bold text-[#064E3B] mb-6 flex items-center gap-2 text-sm"><PieChart size={16} className="text-[#D4AF37]" /> ইউজার রোল ডিস্ট্রিবিউশন</h4>
+                            <div className="h-60">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={[
+                                  { name: 'সদস্য', count: usersList.filter(u => !u.role || u.role === 'shareholder').length, color: '#064E3B' },
+                                  { name: 'কর্মচারী', count: usersList.filter(u => u.role === 'employee').length, color: '#D4AF37' },
+                                  { name: 'অ্যাডমিন', count: usersList.filter(u => u.role === 'admin').length, color: '#10B981' }
+                                ]}>
+                                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                  <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: '10px', fontWeight: '600' }} />
+                                  <YAxis hide />
+                                  <Tooltip cursor={{ fill: '#f8f9fa' }} contentStyle={{ borderRadius: '12px', border: 'none', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                  <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={35}>
+                                    { [1,2,3].map((_, index) => <Cell key={index} fill={['#064E3B', '#D4AF37', '#10B981'][index]} />) }
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                            <h4 className="font-bold text-[#064E3B] mb-4 flex items-center gap-2 text-sm"><Activity size={16} className="text-[#D4AF37]" /> সাম্প্রতিক ইউজার অ্যাক্টিভিটি</h4>
+                            <div className="space-y-3">
+                              {usersList.slice().sort((a,b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 4).map((usr, i) => (
+                                <div key={i} className="flex items-center justify-between p-3 bg-gray-50/50 rounded-xl hover:bg-gray-50 transition-all">
+                                  <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center font-bold text-[10px] text-[#064E3B] shrink-0">{usr.displayName?.charAt(0) || 'U'}</div>
+                                    <div className="overflow-hidden">
+                                      <p className="text-[11px] font-bold truncate">{usr.displayName || 'Anonymous'}</p>
+                                      <p className="text-[9px] text-gray-400 truncate">{usr.role || 'Member'}</p>
+                                    </div>
+                                  </div>
+                                  <span className="text-[9px] text-gray-400 font-medium whitespace-nowrap shrink-0">{usr.createdAt ? new Date(usr.createdAt).toLocaleDateString() : 'New'}</span>
+                                </div>
+                              ))}
+                              {usersList.length === 0 && <p className="text-center py-10 text-gray-400 text-xs italic">কোন তথ্য পাওয়া যায়নি</p>}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : adminTab === 'settings' ? (
                       <div className="space-y-6">
-                        <button onClick={() => setIsEditing(null)} className="text-sm text-gray-500 hover:text-[#064E3B]">ফিরে যান</button>
-                        {isEditing === 'stats' && (
-                          <div className="space-y-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                            <input value={editData.memberCount} onChange={(e) => setEditData({...editData, memberCount: e.target.value})} className="w-full p-3 border rounded-xl mb-4" placeholder="সদস্য সংখ্যা" />
-                            <input value={editData.reportUrl} onChange={(e) => setEditData({...editData, reportUrl: e.target.value})} className="w-full p-3 border rounded-xl" placeholder="রিপোর্ট ইউআরএল" />
-                            <button onClick={handleSaveContent} className="w-full py-3 bg-[#064E3B] text-white font-bold rounded-xl mt-4">সংরক্ষণ করুন</button>
-                          </div>
-                        )}
-                        {isEditing === 'intro' && (
-                          <div className="space-y-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                            <textarea rows={4} value={editData.introText} onChange={(e) => setEditData({...editData, introText: e.target.value})} className="w-full p-3 border rounded-xl" placeholder="পরিচিতি টেক্সট" />
-                            <input value={editData.introQuote} onChange={(e) => setEditData({...editData, introQuote: e.target.value})} className="w-full p-3 border rounded-xl" placeholder="উক্তি" />
-                            <button onClick={handleSaveContent} className="w-full py-3 bg-[#064E3B] text-white font-bold rounded-xl mt-4">সংরক্ষণ করুন</button>
-                          </div>
-                        )}
-                        {(isEditing === 'objectives' || isEditing === 'goals') && (
-                          <div className="space-y-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                            {editData[isEditing].map((item: string, idx: number) => (
-                              <div key={idx} className="flex gap-2">
-                                <input value={item} onChange={(e) => updateArrayField(isEditing, idx, e.target.value)} className="flex-1 p-3 border rounded-xl" />
-                                <button onClick={() => removeArrayItem(isEditing, idx)} className="text-red-500"><Trash2 size={18} /></button>
+                        {isEditing ? (
+                          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                            <button onClick={() => setIsEditing(null)} className="flex items-center gap-2 mb-6 text-xs font-bold text-[#D4AF37] bg-[#064E3B] px-3 py-1.5 rounded-lg hover:bg-[#064E3B]/90 transition-all shrink-0">← ব্যাক টু সেটিংস</button>
+                            
+                            {isEditing === 'stats' && (
+                              <div className="space-y-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">মেম্বার সংখ্যা লেবেল</label><input value={editData.members} onChange={(e) => setEditData({...editData, members: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm font-serif" /></div>
+                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">রিপোর্ট লিঙ্ক</label><input value={editData.reportUrl} onChange={(e) => setEditData({...editData, reportUrl: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm" /></div>
+                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
                               </div>
-                            ))}
-                            <button onClick={() => addArrayItem(isEditing)} className="w-full py-2 border-2 border-dashed rounded-xl flex items-center justify-center gap-2"><Plus size={18} /> যোগ করুন</button>
-                            <button onClick={handleSaveContent} className="w-full py-3 bg-[#064E3B] text-white font-bold rounded-xl mt-4">সংরক্ষণ করুন</button>
-                          </div>
-                        )}
-                        {isEditing === 'progress' && (
-                          <div className="space-y-8 bg-white p-6 rounded-2xl shadow-sm">
-                            {['activitiesRunning', 'activitiesFuture', 'activitiesSocial'].map((field) => (
-                              <div key={field} className="space-y-3">
-                                <h4 className="font-bold text-[#064E3B]">{field}</h4>
-                                {editData[field].map((item: string, idx: number) => (
-                                  <div key={idx} className="flex gap-2">
-                                    <input value={item} onChange={(e) => updateArrayField(field, idx, e.target.value)} className="flex-1 p-2 border rounded-lg text-sm" />
-                                    <button onClick={() => removeArrayItem(field, idx)} className="text-red-400"><Trash2 size={16} /></button>
+                            )}
+
+                            {isEditing === 'intro' && (
+                              <div className="space-y-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">পরিচিতি টেক্সট</label><textarea rows={4} value={editData.introText} onChange={(e) => setEditData({...editData, introText: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none resize-none text-sm leading-relaxed" /></div>
+                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">মূল বাণী (Quote)</label><textarea rows={2} value={editData.quote} onChange={(e) => setEditData({...editData, quote: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none italic resize-none text-sm" /></div>
+                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
+                              </div>
+                            )}
+
+                            {isEditing === 'objectives' && (
+                              <div className="space-y-6 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                {['objectives', 'goals'].map((field) => (
+                                  <div key={field} className="space-y-3">
+                                    <h4 className="font-bold text-[#064E3B] text-sm flex items-center justify-between">{field === 'objectives' ? 'উদ্দেশ্য' : 'লক্ষ্যসমূহ'} <span className="text-[9px] bg-[#D4AF37]/20 text-[#064E3B] px-1.5 py-0.5 rounded-full">{editData[field].length} টি</span></h4>
+                                    {editData[field].map((item: string, idx: number) => (
+                                      <div key={idx} className="flex gap-2">
+                                        <input value={item} onChange={(e) => updateArrayField(field, idx, e.target.value)} className="flex-1 p-2.5 bg-gray-50 border-none rounded-xl text-xs outline-none focus:bg-white focus:ring-1 ring-[#D4AF37]/30 transition-all" />
+                                        <button onClick={() => removeArrayItem(field, idx)} className="text-red-300 hover:text-red-500 transition-colors shrink-0"><Trash2 size={18} /></button>
+                                      </div>
+                                    ))}
+                                    <button onClick={() => addArrayItem(field)} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-2 rounded-lg hover:bg-blue-100 transition-all">+ আরও একটি পয়েন্ট যোগ করুন</button>
                                   </div>
                                 ))}
-                                <button onClick={() => addArrayItem(field)} className="text-xs text-blue-500">+ যোগ করুন</button>
+                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
+                              </div>
+                            )}
+
+                            {isEditing === 'progress' && (
+                              <div className="space-y-6 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                                {['activitiesRunning', 'activitiesFuture', 'activitiesSocial'].map((field) => (
+                                  <div key={field} className="space-y-2">
+                                    <h4 className="font-bold text-[#064E3B] text-sm mb-2">{field.replace('activities', '')} কার্যক্রম তালিকা</h4>
+                                    {editData[field].map((item: string, idx: number) => (
+                                      <div key={idx} className="flex gap-2">
+                                        <input value={item} onChange={(e) => updateArrayField(field, idx, e.target.value)} className="flex-1 p-2.5 bg-gray-50 rounded-xl text-xs outline-none focus:bg-white focus:ring-1 ring-[#064E3B]/10 transition-all" />
+                                        <button onClick={() => removeArrayItem(field, idx)} className="text-red-300 hover:text-red-500 shrink-0"><Trash2 size={18} /></button>
+                                      </div>
+                                    ))}
+                                    <button onClick={() => addArrayItem(field)} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-2 rounded-lg transition-all">+ নতুন একটি পয়েন্ট যোগ করুন</button>
+                                  </div>
+                                ))}
+                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-500">
+                            {[
+                              { id: 'stats', label: 'মেম্বার সংখ্যা ও রিপোর্ট লিংক', icon: <Database size={18}/> },
+                              { id: 'intro', label: 'পরিচিতি ও মূল বাণীসমূহ', icon: <User size={18}/> },
+                              { id: 'progress', label: 'কার্যক্রম ও প্রজেক্ট তালিকা', icon: <Activity size={18}/> },
+                              { id: 'objectives', label: 'উদ্দেশ্য ও ভিশন-মিশন', icon: <Target size={18}/> }
+                            ].map((item) => (
+                              <div key={item.id} onClick={() => startEditing(item.id)} className="bg-white p-6 rounded-3xl border border-gray-100 hover:border-[#D4AF37] hover:shadow-xl transition-all group cursor-pointer shadow-sm">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 group-hover:bg-[#D4AF37]/10 group-hover:text-[#D4AF37] transition-all flex items-center justify-center">{item.icon}</div>
+                                    <h4 className="font-bold text-[#064E3B] text-sm">{item.label}</h4>
+                                  </div>
+                                  <ChevronRight size={18} className="text-gray-200 group-hover:text-[#D4AF37] group-hover:translate-x-1 transition-all" />
+                                </div>
                               </div>
                             ))}
-                            <button onClick={handleSaveContent} className="w-full py-3 bg-[#064E3B] text-white font-bold rounded-xl">সংরক্ষণ করুন</button>
                           </div>
                         )}
-                        {isEditing === 'users' && (
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center mb-4 text-[#064E3B]">
-                              <h3 className="font-bold font-serif text-lg">সদস্য ও কর্মচারী ব্যবস্থাপনা ({usersList.length})</h3>
-                              <button onClick={fetchUsers} className={`p-2 rounded-lg bg-white border shadow-sm transition-colors ${isFetchingUsers ? 'animate-pulse' : ''}`}>রিফ্রেশ</button>
-                            </div>
-                            {isFetchingUsers ? (
-                              <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
-                            ) : (
-                              <div className="space-y-3">
-                                {usersList.length === 0 && <p className="text-center py-10 text-gray-400">কোন ইউজার পাওয়া যায়নি।</p>}
-                                {usersList.map((usr: any) => (
-                                  <div key={usr.id} className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${usr.disabled ? 'bg-red-50/50 border-red-100 opacity-70' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                    <div className="flex items-center gap-3">
-                                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg ${usr.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-[#D4AF37]/10 text-[#064E3B]'}`}>
-                                        {usr.displayName?.charAt(0) || 'U'}
-                                      </div>
-                                      <div className="overflow-hidden">
-                                        <p className="font-bold text-sm truncate">{usr.displayName || 'নামহীন সদস্য'}</p>
-                                        <p className="text-[10px] text-gray-500 truncate">{usr.email}</p>
-                                        {usr.disabled && <span className="text-[9px] font-bold text-red-500 uppercase tracking-tighter">নিষ্ক্রিয়</span>}
+                      </div>
+                    ) : (
+                      <div className="space-y-4 animate-in fade-in duration-500">
+                        <div className="flex justify-between items-center mb-6">
+                          <div>
+                            <h3 className="font-serif font-bold text-xl text-[#064E3B]">ইউজার ম্যানেজমেন্ট</h3>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Role based access control</p>
+                          </div>
+                          <button onClick={fetchUsers} className={`p-2 rounded-xl border-2 transition-all ${isFetchingUsers ? 'animate-pulse' : 'hover:bg-gray-100'}`}><Activity size={16} className="text-[#D4AF37]"/></button>
+                        </div>
+                        {isFetchingUsers ? (
+                          <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-4">
+                            {usersList.length === 0 && <p className="text-center py-20 text-gray-400 font-serif italic">কোন ইউজার ডাটা পাওয়া যায়নি</p>}
+                            {usersList.map((usr: any) => (
+                              <div key={usr.id} className={`p-5 rounded-[2.5rem] border transition-all ${usr.disabled ? 'bg-red-50/40 border-red-100 opacity-80' : 'bg-white border-gray-100 shadow-sm hover:shadow-md'}`}>
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                  <div className="flex items-center gap-4 min-w-0">
+                                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-bold text-xl transition-all shadow-inner shrink-0 ${usr.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-[#D4AF37]/10 text-[#064E3B]'}`}>
+                                      {usr.displayName?.charAt(0) || 'U'}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-[#064E3B] truncate">{usr.displayName || 'Unnamed member'}</p>
+                                      <p className="text-[10px] text-gray-400 truncate mb-2">{usr.email}</p>
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tight ${usr.role === 'admin' ? 'bg-red-500 text-white' : usr.role === 'employee' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-500'}`}>{usr.role || 'Member'}</span>
+                                        {usr.disabled && <span className="text-[9px] bg-black text-white px-2 py-1 rounded-full font-bold tracking-widest leading-none">LOCKED</span>}
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-3 justify-end">
+                                  </div>
+                                  <div className="flex items-center gap-3 justify-end shrink-0">
+                                    <div className="bg-gray-50 p-1.5 rounded-2xl flex items-center gap-2">
                                       <select 
                                         value={usr.role || 'shareholder'} 
                                         onChange={(e) => updateUserRole(usr.id, e.target.value)}
-                                        className={`text-xs font-bold p-2 rounded-lg border outline-none ${usr.role === 'admin' ? 'border-red-200 bg-red-50 text-red-700' : 'border-[#D4AF37]/20 bg-white text-[#064E3B]'}`}
+                                        className="text-[11px] font-bold p-2.5 bg-white border-none rounded-xl shadow-sm cursor-pointer outline-none focus:ring-1 ring-[#D4AF37]"
                                       >
                                         <option value="shareholder">শেয়ারহোল্ডার</option>
                                         <option value="employee">কর্মচারী</option>
@@ -788,29 +924,21 @@ export default function App() {
                                       </select>
                                       <button 
                                         onClick={() => toggleUserStatus(usr.id, usr.disabled)}
-                                        className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${usr.disabled ? 'bg-emerald-500 text-white shadow-emerald-200 shadow-lg' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+                                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${usr.disabled ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
                                       >
-                                        {usr.disabled ? <ShieldCheck size={18} /> : <Lock size={18} />}
+                                        {usr.disabled ? <ShieldCheck size={20} /> : <Lock size={20} />}
                                       </button>
                                     </div>
                                   </div>
-                                ))}
+                                </div>
                               </div>
-                            )}
+                            ))}
                           </div>
                         )}
                       </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div onClick={() => startEditing('stats')} className="bg-white p-6 rounded-2xl border hover:border-[#D4AF37] cursor-pointer group shadow-sm transition-all"><h4 className="font-bold">সদস্য ও রিপোর্ট লিঙ্ক</h4></div>
-                        <div onClick={() => startEditing('intro')} className="bg-white p-6 rounded-2xl border hover:border-[#D4AF37] cursor-pointer shadow-sm transition-all"><h4 className="font-bold">পরিচিতি</h4></div>
-                        <div onClick={() => startEditing('progress')} className="bg-white p-6 rounded-2xl border hover:border-[#D4AF37] cursor-pointer shadow-sm transition-all"><h4 className="font-bold">কার্যক্রম</h4></div>
-                        <div onClick={() => startEditing('objectives')} className="bg-white p-6 rounded-2xl border hover:border-[#D4AF37] cursor-pointer shadow-sm transition-all"><h4 className="font-bold">উদ্দেশ্য ও লক্ষ্য</h4></div>
-                        <div onClick={() => startEditing('users')} className="bg-white p-6 rounded-2xl border hover:border-[#D4AF37] cursor-pointer shadow-sm transition-all col-span-1 md:col-span-2"><h4 className="font-bold flex items-center gap-2"><Users size={20} className="text-[#064E3B]" /> ইউজার ম্যানেজমেন্ট (সদস্য ও কর্মচারী)</h4></div>
-                      </div>
                     )}
                   </div>
-                  <div className="p-4 border-t bg-white flex justify-end"><button onClick={closeModal} className="px-6 py-2 bg-gray-200 rounded-lg">বন্ধ করুন</button></div>
+                  <div className="p-4 md:p-6 border-t bg-white flex justify-end shrink-0"><button onClick={closeModal} className="px-10 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-colors shadow-sm">বন্ধ করুন</button></div>
                 </>
               ) : activeCardData ? (
                 <>
