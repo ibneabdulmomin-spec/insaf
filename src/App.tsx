@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
@@ -677,15 +677,15 @@ export default function App() {
         </div>
 
         {/* Floating Action Buttons */}
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
-          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://wa.me/8801880917816" target="_blank" rel="noopener noreferrer" className="p-3.5 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors">
-            <MessageCircle size={24} />
+        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2 sm:gap-3">
+          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://wa.me/8801880917816" target="_blank" rel="noopener noreferrer" className="p-2 sm:p-3.5 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors">
+            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
           </motion.a>
-          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://www.facebook.com/profile.php?id=61585517853683" target="_blank" rel="noopener noreferrer" className="p-3.5 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors">
-            <Facebook size={24} />
+          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://www.facebook.com/profile.php?id=61585517853683" target="_blank" rel="noopener noreferrer" className="p-2 sm:p-3.5 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors">
+            <Facebook className="w-5 h-5 sm:w-6 sm:h-6" />
           </motion.a>
-          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.6, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="tel:+8801880917816" className="p-3.5 bg-[#064E3B] text-white rounded-full shadow-lg hover:bg-[#064E3B]/90 transition-colors">
-            <Phone size={24} />
+          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.6, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="tel:+8801880917816" className="p-2 sm:p-3.5 bg-[#064E3B] text-white rounded-full shadow-lg hover:bg-[#064E3B]/90 transition-colors">
+            <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
           </motion.a>
         </div>
 
@@ -721,13 +721,17 @@ export default function App() {
               <h2 className={`font-serif text-3xl md:text-4xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>আল-ইনসাফ সম্পর্কে জানুন</h2>
               <div className="w-16 h-1 bg-[#D4AF37] mx-auto rounded-full"></div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
               {cardData.map((card, idx) => (
-                <motion.button key={idx} onClick={() => openModal(card.id)} whileHover={{ y: -8, scale: 1.02 }} whileTap={{ scale: 0.98 }} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }} className={`${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-[#D4AF37]/20 shadow-sm'} p-8 rounded-2xl border transition-all text-left flex flex-col group`}>
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-[#064E3B] group-hover:text-white transition-all duration-300 ${isDarkMode ? 'bg-gray-800' : card.color}`}>{card.icon}</div>
-                  <h3 className={`font-serif text-2xl font-bold mb-3 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>{card.title}</h3>
-                  <p className={`text-sm mb-6 flex-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{card.description}</p>
-                  <div className="text-[#D4AF37] font-medium text-sm flex items-center gap-1">বিস্তারিত দেখুন <ChevronRight size={16} /></div>
+                <motion.button key={idx} onClick={() => openModal(card.id)} whileHover={{ y: -8, scale: 1.02 }} whileTap={{ scale: 0.98 }} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }} className={`${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-[#D4AF37]/20 shadow-sm'} p-5 sm:p-8 rounded-2xl border transition-all text-left flex flex-col group`}>
+                  <div className="flex items-center gap-4 sm:flex-col sm:items-start sm:gap-0 sm:mb-6">
+                    <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-[#064E3B] group-hover:text-white transition-all duration-300 ${isDarkMode ? 'bg-gray-800' : card.color}`}>
+                      {React.cloneElement(card.icon as React.ReactElement, { size: 24, className: "sm:w-8 sm:h-8" })}
+                    </div>
+                    <h3 className={`font-serif text-xl sm:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>{card.title}</h3>
+                  </div>
+                  <p className={`text-xs sm:text-sm mb-4 sm:mb-6 flex-1 mt-2 sm:mt-0 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{card.description}</p>
+                  <div className="text-[#D4AF37] font-medium text-xs sm:text-sm flex items-center gap-1">বিস্তারিত দেখুন <ChevronRight size={16} /></div>
                 </motion.button>
               ))}
             </div>
@@ -765,18 +769,79 @@ export default function App() {
         </section>
       </main>
 
-      <footer className="bg-[#043326] text-white py-12 border-t border-[#D4AF37]/20">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-[#0a192f] border border-[#D4AF37]/30 flex items-center justify-center">
-              <img src={logo} alt="Logo" className="w-full h-full object-contain scale-110" referrerPolicy="no-referrer" />
+      <footer className="bg-[#042A1E] text-white pt-20 pb-10 border-t border-[#D4AF37]/10">
+        <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+          {/* Brand Column */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-[#0a192f] border border-[#D4AF37]/30 flex items-center justify-center">
+                <img src={logo} alt="Logo" className="w-full h-full object-contain scale-110" referrerPolicy="no-referrer" />
+              </div>
+              <span className="font-serif text-2xl font-bold">আল-<span className="text-[#D4AF37]">ইনসাফ</span></span>
             </div>
-            <span className="font-serif text-xl font-bold">আল-<span className="text-[#D4AF37]">ইনসাফ</span></span>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ। আমরা সমাজের ক্ষমতায়ন ও নৈতিক অর্থনীতি প্রতিষ্ঠায় অঙ্গীকারবদ্ধ।
+            </p>
+            <div className="flex gap-3">
+               <a href="https://www.facebook.com/profile.php?id=61585517853683" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center hover:bg-[#D4AF37] hover:text-[#064E3B] transition-all"><Facebook size={18} /></a>
+               <a href="https://wa.me/8801880917816" target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center hover:bg-green-500 hover:text-white transition-all"><MessageCircle size={18} /></a>
+            </div>
           </div>
-          <p className="text-gray-400 text-sm">&copy; {new Date().getFullYear()} আল-ইনসাফ অর্গানাইজেশন।</p>
-          <div className="flex gap-4">
-            <a href="https://www.facebook.com/profile.php?id=61585517853683" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#D4AF37] hover:text-[#064E3B] transition-colors"><Facebook size={18} /></a>
-            <a href="https://www.facebook.com/profile.php?id=61581553149416" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-[#D4AF37] hover:text-[#064E3B] transition-colors"><Facebook size={18} /></a>
+
+          {/* Quick Links */}
+          <div>
+            <h4 className="font-serif text-lg font-bold mb-6 border-b border-[#D4AF37]/20 pb-2 inline-block">গুরুত্বপূর্ণ লিংক</h4>
+            <ul className="space-y-4">
+              <li><button onClick={() => scrollToSection('home')} className="text-gray-400 hover:text-[#D4AF37] transition-colors text-sm flex items-center gap-2"><ChevronRight size={14} /> হোম</button></li>
+              <li><button onClick={() => scrollToSection('explore')} className="text-gray-400 hover:text-[#D4AF37] transition-colors text-sm flex items-center gap-2"><ChevronRight size={14} /> আমাদের সম্পর্কে</button></li>
+              <li><button onClick={() => scrollToSection('contact')} className="text-gray-400 hover:text-[#D4AF37] transition-colors text-sm flex items-center gap-2"><ChevronRight size={14} /> যোগাযোগ</button></li>
+              <li><a href={siteContent?.reportUrl || "https://tinyurl.com/al-insafreport"} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#D4AF37] transition-colors text-sm flex items-center gap-2"><ChevronRight size={14} /> ইনভেস্টমেন্ট রিপোর্ট</a></li>
+            </ul>
+          </div>
+
+          {/* Core Objectives */}
+          <div>
+            <h4 className="font-serif text-lg font-bold mb-6 border-b border-[#D4AF37]/20 pb-2 inline-block">আমাদের লক্ষ্যসমূহ</h4>
+            <ul className="space-y-3">
+              {(siteContent?.objectives || [
+                "স্বচ্ছতা ও জবাবদিহিতা নিশ্চিত করা",
+                "আস্থা ও ভ্রাতৃত্ব বৃদ্ধি করা",
+                "ইসলামিক অর্থনীতি বাস্তবায়ন"
+              ]).slice(0, 3).map((obj: string, i: number) => (
+                <li key={i} className="text-gray-400 text-[11px] leading-relaxed flex gap-2">
+                  <span className="text-[#D4AF37] font-bold mt-1">•</span>
+                  {obj}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Contact Column */}
+          <div className="space-y-6">
+            <h4 className="font-serif text-lg font-bold mb-2 border-b border-[#D4AF37]/20 pb-2 inline-block">যোগাযোগের ঠিকানা</h4>
+            <div className="space-y-4">
+              <div className="flex gap-3 text-gray-400">
+                <MapPin size={18} className="text-[#D4AF37] shrink-0" />
+                <p className="text-sm">ঢাকা, বাংলাদেশ</p>
+              </div>
+              <div className="flex gap-3 text-gray-400">
+                <Phone size={18} className="text-[#D4AF37] shrink-0" />
+                <p className="text-sm">01880917816</p>
+              </div>
+              <div className="flex gap-3 text-gray-400">
+                <Mail size={18} className="text-[#D4AF37] shrink-0" />
+                <p className="text-sm">alinsaf34@gmail.com</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="max-w-7xl mx-auto px-4 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-gray-500 uppercase tracking-widest font-bold">
+          <p>&copy; {new Date().getFullYear()} আল-ইনসাফ অর্গানাইজেশন। সর্বস্বত্ব সংরক্ষিত।</p>
+          <div className="flex gap-6">
+            <button className="hover:text-gray-300">Terms & Conditions</button>
+            <button className="hover:text-gray-300">Privacy Policy</button>
           </div>
         </div>
       </footer>
