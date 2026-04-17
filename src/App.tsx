@@ -126,6 +126,9 @@ export default function App() {
 
   // Firebase Auth Listener
   useEffect(() => {
+    // Set persistence once on mount
+    setPersistence(auth, browserLocalPersistence).catch(err => console.error("Persistence Error:", err));
+
     const testConnection = async () => {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
@@ -144,10 +147,24 @@ export default function App() {
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userDoc = await getDoc(userDocRef);
           
-          const userEmail = currentUser.email?.toLowerCase();
-          const isAdminEmail = userEmail === 'ibne.abdul.momin@gmail.com' || 
-                               userEmail === 'ibneabdulmomin@gmail.com' ||
-                               userEmail === 'alinsaf34@gmail.com';
+          const userEmail = currentUser.email?.toLowerCase() || '';
+          
+          // Helper to check if email is admin, ignoring dots for Gmail
+          const checkIsAdmin = (email: string) => {
+            const adminEmails = [
+              'ibne.abdul.momin@gmail.com',
+              'ibneabdulmomin@gmail.com',
+              'alinsaf34@gmail.com',
+              'ibne.abdulmomin@gmail.com',
+              'ibneabdul.momin@gmail.com'
+            ];
+            
+            const normalized = email.replace(/\./g, '');
+            const hasAdminMatch = adminEmails.some(ae => ae.replace(/\./g, '') === normalized);
+            return hasAdminMatch;
+          };
+
+          const isAdminEmail = checkIsAdmin(userEmail);
           
           console.log("Auth State Changed:", userEmail, "Is Admin:", isAdminEmail);
           
@@ -166,11 +183,21 @@ export default function App() {
           } else {
             const profileData = userDoc.data();
             console.log("Existing profile role:", profileData.role);
+            
+            // Auto-upgrade admin if not current
             if (profileData.role !== 'admin' && isAdminEmail) {
               console.log("Upgrading user to admin...");
               await updateDoc(userDocRef, { role: 'admin' });
               profileData.role = 'admin';
             }
+
+            // Force enable if admin (recovery)
+            if (profileData.disabled && isAdminEmail) {
+              console.log("Admin account was disabled, auto-enabling...");
+              await updateDoc(userDocRef, { disabled: false });
+              profileData.disabled = false;
+            }
+
             if (profileData.disabled) {
               await signOut(auth);
               setUser(null);
@@ -191,13 +218,19 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   const handleSaveContent = async () => {
     if (!editData) return;
     try {
       const contentDocRef = doc(db, 'settings', 'site_content');
       await setDoc(contentDocRef, editData, { merge: true });
-      setIsEditing(null);
-      setEditData(null);
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setIsEditing(null);
+        setEditData(null);
+      }, 1500);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'settings/site_content');
     }
@@ -447,7 +480,6 @@ export default function App() {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      await setPersistence(auth, browserLocalPersistence);
       await signInWithPopup(auth, provider);
     } catch (error: any) {
       console.error("Login Error:", error);
@@ -456,6 +488,8 @@ export default function App() {
         msg = "আপনার ব্রাউজারে পপ-আপ ব্লক করা আছে। সেটিংস থেকে এটি এলাউ করুন।";
       } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
         msg = "লগইন পপ-আপ বন্ধ করা হয়েছে।";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        msg = "এই ডোমেইনটি লগইন করার জন্য অনুমোদিত নয়। অনুগ্রহ করে অ্যাডমিনকে এটি যুক্ত করতে বলুন।";
       } else {
         msg += " " + error.message;
       }
@@ -827,9 +861,14 @@ export default function App() {
                             
                             {isEditing === 'stats' && (
                               <div className="space-y-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">মেম্বার সংখ্যা লেবেল</label><input value={editData.members} onChange={(e) => setEditData({...editData, members: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm font-serif" /></div>
-                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">রিপোর্ট লিঙ্ক</label><input value={editData.reportUrl} onChange={(e) => setEditData({...editData, reportUrl: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm" /></div>
-                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
+                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">মেম্বার সংখ্যা লেবেল</label><input value={editData.memberCount || ""} onChange={(e) => setEditData({...editData, memberCount: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm font-serif" /></div>
+                                <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">রিপোর্ট লিঙ্ক</label><input value={editData.reportUrl || ""} onChange={(e) => setEditData({...editData, reportUrl: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm" /></div>
+                                <button 
+                                  onClick={handleSaveContent} 
+                                  className={`w-full py-4 text-white font-bold rounded-xl mt-4 shadow-lg transition-all ${saveSuccess ? 'bg-green-500 shadow-green-100' : 'bg-[#064E3B] shadow-emerald-100'}`}
+                                >
+                                  {saveSuccess ? 'সাফল্যের সাথে সেভ হয়েছে!' : 'পরিবর্তন সেভ করুন'}
+                                </button>
                               </div>
                             )}
 
@@ -837,7 +876,12 @@ export default function App() {
                               <div className="space-y-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                                 <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">পরিচিতি টেক্সট</label><textarea rows={4} value={editData.introText} onChange={(e) => setEditData({...editData, introText: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none resize-none text-sm leading-relaxed" /></div>
                                 <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">মূল বাণী (Quote)</label><textarea rows={2} value={editData.quote} onChange={(e) => setEditData({...editData, quote: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none italic resize-none text-sm" /></div>
-                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
+                                <button 
+                                  onClick={handleSaveContent} 
+                                  className={`w-full py-4 text-white font-bold rounded-xl mt-4 shadow-lg transition-all ${saveSuccess ? 'bg-green-500 shadow-green-100' : 'bg-[#064E3B] shadow-emerald-100'}`}
+                                >
+                                  {saveSuccess ? 'সাফল্যের সাথে সেভ হয়েছে!' : 'পরিবর্তন সেভ করুন'}
+                                </button>
                               </div>
                             )}
 
@@ -855,7 +899,12 @@ export default function App() {
                                     <button onClick={() => addArrayItem(field)} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-2 rounded-lg hover:bg-blue-100 transition-all">+ আরও একটি পয়েন্ট যোগ করুন</button>
                                   </div>
                                 ))}
-                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
+                                <button 
+                                  onClick={handleSaveContent} 
+                                  className={`w-full py-4 text-white font-bold rounded-xl mt-4 shadow-lg transition-all ${saveSuccess ? 'bg-green-500 shadow-green-100' : 'bg-[#064E3B] shadow-emerald-100'}`}
+                                >
+                                  {saveSuccess ? 'সাফল্যের সাথে সেভ হয়েছে!' : 'পরিবর্তন সেভ করুন'}
+                                </button>
                               </div>
                             )}
 
@@ -873,7 +922,12 @@ export default function App() {
                                     <button onClick={() => addArrayItem(field)} className="text-[10px] font-bold text-blue-500 bg-blue-50 px-3 py-2 rounded-lg transition-all">+ নতুন একটি পয়েন্ট যোগ করুন</button>
                                   </div>
                                 ))}
-                                <button onClick={handleSaveContent} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl mt-4 shadow-lg shadow-emerald-100">পরিবর্তন সেভ করুন</button>
+                                <button 
+                                  onClick={handleSaveContent} 
+                                  className={`w-full py-4 text-white font-bold rounded-xl mt-4 shadow-lg transition-all ${saveSuccess ? 'bg-green-500 shadow-green-100' : 'bg-[#064E3B] shadow-emerald-100'}`}
+                                >
+                                  {saveSuccess ? 'সাফল্যের সাথে সেভ হয়েছে!' : 'পরিবর্তন সেভ করুন'}
+                                </button>
                               </div>
                             )}
                           </div>
