@@ -144,9 +144,12 @@ export default function App() {
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userDoc = await getDoc(userDocRef);
           
-          const isAdminEmail = currentUser.email === 'ibne.abdul.momin@gmail.com' || 
-                               currentUser.email === 'ibneabdulmomin@gmail.com' ||
-                               currentUser.email === 'alinsaf34@gmail.com';
+          const userEmail = currentUser.email?.toLowerCase();
+          const isAdminEmail = userEmail === 'ibne.abdul.momin@gmail.com' || 
+                               userEmail === 'ibneabdulmomin@gmail.com' ||
+                               userEmail === 'alinsaf34@gmail.com';
+          
+          console.log("Auth State Changed:", userEmail, "Is Admin:", isAdminEmail);
           
           if (!userDoc.exists()) {
             const newProfile = {
@@ -158,10 +161,13 @@ export default function App() {
               createdAt: new Date().toISOString()
             };
             await setDoc(userDocRef, newProfile);
+            console.log("New profile created as:", newProfile.role);
             setUserProfile(newProfile);
           } else {
             const profileData = userDoc.data();
+            console.log("Existing profile role:", profileData.role);
             if (profileData.role !== 'admin' && isAdminEmail) {
+              console.log("Upgrading user to admin...");
               await updateDoc(userDocRef, { role: 'admin' });
               profileData.role = 'admin';
             }
