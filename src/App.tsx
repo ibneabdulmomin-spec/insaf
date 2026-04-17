@@ -669,6 +669,26 @@ export default function App() {
       </header>
 
       <main className="pt-20">
+        {/* Ticker for Khidmate Khalq */}
+        <div className="w-full bg-[#D4AF37] overflow-hidden py-1">
+          <motion.div className="whitespace-nowrap font-bold text-[#064E3B]" initial={{ x: "100%" }} animate={{ x: "-100%" }} transition={{ repeat: Infinity, duration: 25, ease: "linear" }}>
+            আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন। — আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন। — আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন।
+          </motion.div>
+        </div>
+
+        {/* Floating Action Buttons */}
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://wa.me/8801880917816" target="_blank" rel="noopener noreferrer" className="p-3.5 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors">
+            <MessageCircle size={24} />
+          </motion.a>
+          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://www.facebook.com/profile.php?id=61585517853683" target="_blank" rel="noopener noreferrer" className="p-3.5 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors">
+            <Facebook size={24} />
+          </motion.a>
+          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.6, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="tel:+8801880917816" className="p-3.5 bg-[#064E3B] text-white rounded-full shadow-lg hover:bg-[#064E3B]/90 transition-colors">
+            <Phone size={24} />
+          </motion.a>
+        </div>
+
         <section id="home" className="relative bg-[#064E3B] text-white py-24 md:py-32 overflow-hidden">
           <div className="absolute inset-0 opacity-10 z-0 pointer-events-none">
             <svg width="100%" height="100%"><defs><pattern id="hero-pattern" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M30 0 L60 30 L30 60 L0 30 Z" fill="none" stroke="#FFFFFF" strokeWidth="1"/><circle cx="30" cy="30" r="15" fill="none" stroke="#FFFFFF" strokeWidth="1"/></pattern></defs><rect width="100%" height="100%" fill="url(#hero-pattern)" /></svg>
