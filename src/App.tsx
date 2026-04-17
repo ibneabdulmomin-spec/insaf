@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc } from 'firebase/firestore';
 
 enum OperationType {
@@ -446,9 +446,20 @@ export default function App() {
   const handleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      await setPersistence(auth, browserLocalPersistence);
       await signInWithPopup(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login Error:", error);
+      let msg = "লগইন করতে সমস্যা হয়েছে।";
+      if (error.code === 'auth/popup-blocked') {
+        msg = "আপনার ব্রাউজারে পপ-আপ ব্লক করা আছে। সেটিংস থেকে এটি এলাউ করুন।";
+      } else if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        msg = "লগইন পপ-আপ বন্ধ করা হয়েছে।";
+      } else {
+        msg += " " + error.message;
+      }
+      alert(msg);
     }
   };
 
