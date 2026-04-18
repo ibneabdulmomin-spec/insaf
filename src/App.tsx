@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where } from 'firebase/firestore';
 
 enum OperationType {
@@ -123,6 +123,9 @@ export default function App() {
       const q = query(collection(db, 'tasks'), where('assigneeId', '==', uid));
       const unsub = onSnapshot(q, (snap) => {
         setMyTasks(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Task)));
+        setIsFetchingMyTasks(false);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'my-tasks-snapshot');
         setIsFetchingMyTasks(false);
       });
       return unsub;
@@ -256,6 +259,8 @@ export default function App() {
     const unsub = onSnapshot(collection(db, 'notices'), (snap) => {
       const data = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setNotices(data.filter((n: any) => n.active !== false).sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+    }, (error) => {
+      console.error("Notices Listener Error:", error);
     });
     return unsub;
   }, []);
@@ -265,6 +270,8 @@ export default function App() {
     const unsub = onSnapshot(collection(db, 'gallery'), (snap) => {
       const data = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
       setGalleryItems(data.filter((i: any) => i.deleted !== true));
+    }, (error) => {
+      console.error("Gallery Listener Error:", error);
     });
     return unsub;
   }, []);
@@ -272,92 +279,97 @@ export default function App() {
   // Initialize base data if empty
   useEffect(() => {
     const initData = async () => {
-      // Users & Reports seeding
-      const usersSnap = await getDocs(collection(db, 'users'));
-      if (usersSnap.empty) {
-        const initialShareholders = [
-          { code: "1001", name: "মাওঃ সালমান", mobile: "1851992430", payments: [{ month: "অক্টোবর ২০২৪", amount: 24427 }] },
-          { code: "1002", name: "মুহা. লোকমান", mobile: "1887090637", payments: [{ month: "মার্চ ২০২৪", amount: 42138 }] },
-          { code: "1003", name: "মাওঃ ইমরান", mobile: "1306070340", payments: [{ month: "এপ্রিল ২০২৪", amount: 29436 }] },
-          { code: "1004", name: "মুহা. নোমান", mobile: "1818685296", payments: [{ month: "অক্টোবর ২০২৪", amount: 15888 }] },
-          { code: "1005", name: "ফারিহা আক্তার মীম", mobile: "1886296261", payments: [{ month: "জুন ২০২৪", amount: 18766 }] },
-          { code: "1006", name: "ফাহমিদা হোমায়রা", mobile: "1830854739", payments: [{ month: "এপ্রিল ২০২৪", amount: 15724 }] },
-          { code: "1007", name: "নাইমা আক্তার", mobile: "1840491824", payments: [{ month: "এপ্রিল ২০২৪", amount: 6246 }] },
-          { code: "1008", name: "নুসাইবা", mobile: "1840491825", payments: [{ month: "এপ্রিল ২০২৪", amount: 14589 }] },
-          { code: "1009", name: "ওমর ফারুক", mobile: "1849458345", payments: [{ month: "এপ্রিল ২০২৪", amount: 16742 }] },
-          { code: "1010", name: "হুসাইন", mobile: "1612442395", payments: [{ month: "এপ্রিল ২০২৪", amount: 2410 }] },
-          { code: "1011", name: "মোবারক করিম", mobile: "1980433529", payments: [{ month: "এপ্রিল ২০২৪", amount: 11629 }] },
-          { code: "1012", name: "হাঃ আকরাম", mobile: "1745453847", payments: [{ month: "এপ্রিল ২০২৪", amount: 4472 }] },
-          { code: "1013", name: "আহনাফ আবরার", mobile: "1818422650", payments: [{ month: "এপ্রিল ২০২৪", amount: 8448 }] },
-          { code: "1014", name: "মুস্তাফিজুর রহমান ফিজার", mobile: "1644234822", payments: [{ month: "এপ্রিল ২০২৪", amount: 15504 }] },
-          { code: "1015", name: "উসমান গণী", mobile: "1822605746", payments: [{ month: "এপ্রিল ২০২৪", amount: 11135 }] },
-          { code: "1016", name: "রাসেল প্রবাসী", mobile: "1834674421", payments: [{ month: "এপ্রিল ২০২৪", amount: 26894 }] },
-          { code: "1017", name: "আঃ করিম বিন আঃ রহমান", mobile: "1890754244", payments: [{ month: "এপ্রিল ২০২৪", amount: 520 }] },
-          { code: "1018", name: "নাজমুল মাসনবী যশোর", mobile: "1797765502", payments: [{ month: "এপ্রিল ২০২৪", amount: 7588 }] },
-          { code: "1019", name: "রফিকুল্লাহ হাতিয়া", mobile: "1606260501", payments: [{ month: "এপ্রিল ২০২৪", amount: 8716 }] },
-          { code: "1020", name: "নূর আলম", mobile: "1645141199", payments: [{ month: "এপ্রিল ২০২৪", amount: 5663 }] }
-        ];
+      try {
+        // Users & Reports seeding
+        const usersSnap = await getDocs(collection(db, 'users'));
+        if (usersSnap.empty) {
+          const initialShareholders = [
+            { code: "1001", name: "মাওঃ সালমান", mobile: "1851992430", payments: [{ month: "অক্টোবর ২০২৪", amount: 24427 }] },
+            { code: "1002", name: "মুহা. লোকমান", mobile: "1887090637", payments: [{ month: "মার্চ ২০২৪", amount: 42138 }] },
+            { code: "1003", name: "মাওঃ ইমরান", mobile: "1306070340", payments: [{ month: "এপ্রিল ২০২৪", amount: 29436 }] },
+            { code: "1004", name: "মুহা. নোমান", mobile: "1818685296", payments: [{ month: "অক্টোবর ২০২৪", amount: 15888 }] },
+            { code: "1005", name: "ফারিহা আক্তার মীম", mobile: "1886296261", payments: [{ month: "জুন ২০২৪", amount: 18766 }] },
+            { code: "1006", name: "ফাহমিদা হোমায়রা", mobile: "1830854739", payments: [{ month: "এপ্রিল ২০২৪", amount: 15724 }] },
+            { code: "1007", name: "নাইমা আক্তার", mobile: "1840491824", payments: [{ month: "এপ্রিল ২০২৪", amount: 6246 }] },
+            { code: "1008", name: "নুসাইবা", mobile: "1840491825", payments: [{ month: "এপ্রিল ২০২৪", amount: 14589 }] },
+            { code: "1009", name: "ওমর ফারুক", mobile: "1849458345", payments: [{ month: "এপ্রিল ২০২৪", amount: 16742 }] },
+            { code: "1010", name: "হুসাইন", mobile: "1612442395", payments: [{ month: "এপ্রিল ২০২৪", amount: 2410 }] },
+            { code: "1011", name: "মোবারক করিম", mobile: "1980433529", payments: [{ month: "এপ্রিল ২০২৪", amount: 11629 }] },
+            { code: "1012", name: "হাঃ আকরাম", mobile: "1745453847", payments: [{ month: "এপ্রিল ২০২৪", amount: 4472 }] },
+            { code: "1013", name: "আহনাফ আবরার", mobile: "1818422650", payments: [{ month: "এপ্রিল ২০২৪", amount: 8448 }] },
+            { code: "1014", name: "মুস্তাফিজুর রহমান ফিজার", mobile: "1644234822", payments: [{ month: "এপ্রিল ২০২৪", amount: 15504 }] },
+            { code: "1015", name: "উসমান গণী", mobile: "1822605746", payments: [{ month: "এপ্রিল ২০২৪", amount: 11135 }] },
+            { code: "1016", name: "রাসেল প্রবাসী", mobile: "1834674421", payments: [{ month: "এপ্রিল ২০২৪", amount: 26894 }] },
+            { code: "1017", name: "আঃ করিম বিন আঃ রহমান", mobile: "1890754244", payments: [{ month: "এপ্রিল ২০২৪", amount: 520 }] },
+            { code: "1018", name: "নাজমুল মাসনবী যশোর", mobile: "1797765502", payments: [{ month: "এপ্রিল ২০২৪", amount: 7588 }] },
+            { code: "1019", name: "রফিকুল্লাহ হাতিয়া", mobile: "1606260501", payments: [{ month: "এপ্রিল ২০২৪", amount: 8716 }] },
+            { code: "1020", name: "নূর আলম", mobile: "1645141199", payments: [{ month: "এপ্রিল ২০২৪", amount: 5663 }] },
+            { code: "992244", name: "প্রধান প্রশাসক", mobile: "992244", role: "admin", payments: [] }
+          ];
 
-        for (const s of initialShareholders) {
-          const uid = "user_" + s.code;
-          await setDoc(doc(db, 'users', uid), {
-            uid,
-            identifier: s.mobile,
-            displayName: s.name,
-            shareholderCode: s.code,
-            role: 'shareholder',
-            disabled: false,
-            createdAt: new Date().toISOString()
-          });
-
-          for (const p of s.payments) {
-            await setDoc(doc(collection(db, 'reports')), {
+          for (const s of initialShareholders) {
+            const uid = "user_" + s.code;
+            await setDoc(doc(db, 'users', uid), {
+              uid,
+              identifier: s.mobile,
+              displayName: s.name,
               shareholderCode: s.code,
-              month: p.month,
-              amount: p.amount,
-              premiumAmount: 0,
-              timestamp: new Date().toISOString()
+              role: (s as any).role || 'shareholder',
+              disabled: false,
+              createdAt: new Date().toISOString()
             });
+
+            for (const p of s.payments) {
+              await setDoc(doc(collection(db, 'reports')), {
+                shareholderCode: s.code,
+                month: p.month,
+                amount: p.amount,
+                premiumAmount: 0,
+                timestamp: new Date().toISOString()
+              });
+            }
           }
         }
-      }
 
-      // Notice
-      const noticeSnap = await getDocs(collection(db, 'notices'));
-      if (noticeSnap.empty) {
-        await setDoc(doc(collection(db, 'notices')), {
-          title: "স্বাগতম আল-ইনসাফ এ",
-          content: "আমাদের লক্ষ্য সামজিক ও অর্থনৈতিক মুক্তি অর্জন। স্বচ্ছতা ও আধুনিকতার মাধ্যমে নতুন দিগন্ত উন্মোচন।",
-          date: new Date().toISOString(),
-          active: true
-        });
-      }
-      
-      // Gallery
-      const gallerySnap = await getDocs(collection(db, 'gallery'));
-      if (gallerySnap.empty) {
-        await setDoc(doc(collection(db, 'gallery')), {
-          url: "https://picsum.photos/seed/charity/800/600",
-          caption: "শীতার্তদের মাঝে শীতবস্ত্র বিতরণ - ২০২৪",
-          date: "জানুয়ারি ২০২৪"
-        });
-        await setDoc(doc(collection(db, 'gallery')), {
-          url: "https://picsum.photos/seed/meeting/800/600",
-          caption: "বাৎসরিক সাধারণ সভা - ২০২৩",
-          date: "ডিসেম্বর ২০২৩"
-        });
-      }
+        // Notice
+        const noticeSnap = await getDocs(collection(db, 'notices'));
+        if (noticeSnap.empty) {
+          await setDoc(doc(collection(db, 'notices')), {
+            title: "স্বাগতম আল-ইনসাফ এ",
+            content: "আমাদের লক্ষ্য সামজিক ও অর্থনৈতিক মুক্তি অর্জন। স্বচ্ছতা ও আধুনিকতার মাধ্যমে নতুন দিগন্ত উন্মোচন।",
+            date: new Date().toISOString(),
+            active: true
+          });
+        }
+        
+        // Gallery
+        const gallerySnap = await getDocs(collection(db, 'gallery'));
+        if (gallerySnap.empty) {
+          await setDoc(doc(collection(db, 'gallery')), {
+            url: "https://picsum.photos/seed/charity/800/600",
+            caption: "শীতার্তদের মাঝে শীতবস্ত্র বিতরণ - ২০২৪",
+            date: "জানুয়ারি ২০২৪"
+          });
+          await setDoc(doc(collection(db, 'gallery')), {
+            url: "https://picsum.photos/seed/meeting/800/600",
+            caption: "বাৎসরিক সাধারণ সভা - ২০২৩",
+            date: "ডিসেম্বর ২০২৩"
+          });
+        }
 
-      // Sample Report
-      const reportSnap = await getDocs(collection(db, 'reports'));
-      if (reportSnap.empty) {
-        await setDoc(doc(collection(db, 'reports')), {
-          shareholderCode: "INS-101",
-          month: "ফেব্রুয়ারি ২০২৪",
-          amount: 5000,
-          premiumAmount: 500,
-          timestamp: new Date().toISOString()
-        });
+        // Sample Report
+        const reportSnap = await getDocs(collection(db, 'reports'));
+        if (reportSnap.empty) {
+          await setDoc(doc(collection(db, 'reports')), {
+            shareholderCode: "INS-101",
+            month: "ফেব্রুয়ারি ২০২৪",
+            amount: 5000,
+            premiumAmount: 500,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.warn("Initialization skipped due to permissions (expected for non-admins)");
       }
     };
     initData();
@@ -660,6 +672,8 @@ export default function App() {
              showToast("আপনার অ্যাকাউন্টটি লক করা হয়েছে", "error");
           }
        }
+    }, (error) => {
+       console.error("User Profile Listener Error:", error);
     });
 
     return () => unsubProfile();
@@ -999,41 +1013,61 @@ export default function App() {
   const handleCustomLogin = async (role: 'admin' | 'user', identifier: string) => {
     try {
       setLoading(true);
+      if (!auth.currentUser) {
+        try {
+          await signInAnonymously(auth);
+        } catch (authErr: any) {
+          if (authErr.code === 'auth/admin-restricted-operation') {
+             console.warn("Anonymous auth restricted. Continuing as guest.");
+          } else {
+             throw authErr;
+          }
+        }
+      }
+      const authUid = auth.currentUser?.uid || "guest_" + Date.now();
       const normalizedId = normalizeIdentifier(identifier);
       
-      // Look for existing user with this identifier
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('identifier', '==', normalizedId));
-      const querySnapshot = await getDocs(q);
+      // Look for profile linked to this authUid
+      let userDocRef = doc(db, 'users', authUid);
+      let userDoc = await getDoc(userDocRef);
       
       let profile: any = null;
-      let uid = "";
 
-      if (!querySnapshot.empty) {
-        // User exists
-        const userDoc = querySnapshot.docs[0];
-        profile = { ...userDoc.data(), id: userDoc.id };
-        uid = userDoc.id;
-        
-        if (profile.disabled) {
-          showToast("আপনার অ্যাকাউন্টটি লক করা হয়েছে", "error");
-          setLoading(false);
-          return;
-        }
+      if (userDoc.exists()) {
+        profile = userDoc.data();
       } else {
-        // Create new user
-        uid = "user_" + Date.now();
-        profile = {
-          uid: uid,
-          identifier: identifier,
-          displayName: role === 'admin' ? 'Admin' : 'Shareholder',
-          role: role,
-          disabled: role === 'admin' ? false : false, // Default active
-          createdAt: new Date().toISOString()
-        };
-        await setDoc(doc(db, 'users', uid), profile);
+        // Search for existing profile by identifier to "link" it
+        const q = query(collection(db, 'users'), where('identifier', '==', normalizedId));
+        const qSnap = await getDocs(q);
+        
+        if (!qSnap.empty) {
+          const existingDoc = qSnap.docs[0];
+          const existingData = existingDoc.data();
+          profile = {
+             ...existingData,
+             uid: authUid,
+             lastLogin: new Date().toISOString()
+          };
+          await setDoc(userDocRef, profile);
+        } else {
+          profile = {
+            uid: authUid,
+            identifier: normalizedId,
+            displayName: normalizedId === '992244' || role === 'admin' ? 'Admin' : 'Shareholder',
+            role: normalizedId === '992244' ? 'admin' : role,
+            disabled: false,
+            createdAt: new Date().toISOString()
+          };
+          await setDoc(userDocRef, profile);
+        }
       }
       
+      if (profile.disabled) {
+        showToast("আপনার অ্যাকাউন্টটি লক করা হয়েছে", "error");
+        setLoading(false);
+        return;
+      }
+
       setUserProfile(profile);
       localStorage.setItem('insaf_user_profile', JSON.stringify(profile));
       showToast("সফলভাবে লগইন করা হয়েছে!", "success");
@@ -1041,6 +1075,21 @@ export default function App() {
     } catch (err: any) {
       console.error("Login Error:", err);
       showToast("লগইন ব্যর্থ হয়েছে", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setLoading(true);
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      setIsLoginModalOpen(false);
+      showToast("গুগল লগইন সফল হয়েছে!", "success");
+    } catch (err: any) {
+      console.error("Google Login Error:", err);
+      showToast("গুগল লগইন ব্যর্থ হয়েছে", "error");
     } finally {
       setLoading(false);
     }
@@ -1190,98 +1239,104 @@ export default function App() {
             <button onClick={() => openModal('join')} className="bg-[#064E3B] text-white px-6 py-2.5 rounded-full text-sm font-bold hover:bg-[#064E3B]/90 transition-all shadow-md active:scale-95">যুক্ত হোন</button>
           </nav>
 
-          <div className="flex items-center gap-3 md:hidden">
-            <button onClick={toggleDarkMode} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'bg-gray-800 text-yellow-400' : 'bg-gray-100 text-gray-600'}`}>{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
-            <button className={`${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>{isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
+          <div className="flex items-center gap-2 md:hidden">
+            <button onClick={toggleDarkMode} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'bg-gray-800 text-yellow-400' : 'bg-gray-100 text-gray-600'}`}>
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button 
+              className={`p-2 rounded-xl transition-all ${isMobileMenuOpen ? (isDarkMode ? 'bg-gray-800 text-white' : 'bg-emerald-50 text-[#064E3B]') : (isDarkMode ? 'text-white' : 'text-[#064E3B]')}`} 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X size={28} /> : <MoreVertical size={28} />}
+            </button>
           </div>
         </div>
 
         <AnimatePresence>
           {isMobileMenuOpen && (
             <>
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 md:hidden" />
-              <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className={`fixed inset-y-0 right-0 w-[85%] max-w-sm z-[60] shadow-2xl flex flex-col ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
-                <div className="p-6 flex-1 overflow-y-auto no-scrollbar">
-                  <div className="flex items-center justify-between mb-8">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/40 backdrop-blur-[2px] z-50 md:hidden" />
+              <motion.div 
+                initial={{ opacity: 0, y: -20, scale: 0.95 }} 
+                animate={{ opacity: 1, y: 0, scale: 1 }} 
+                exit={{ opacity: 0, y: -20, scale: 0.95 }} 
+                className={`fixed top-20 left-4 right-4 z-[60] shadow-2xl rounded-[2.5rem] border overflow-hidden flex flex-col max-h-[85vh] ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}
+              >
+                <div className="p-5 flex-1 overflow-y-auto no-scrollbar space-y-5">
+                  <div className="flex items-center justify-between border-b pb-4 border-gray-100/10">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full border-2 border-[#D4AF37] p-0.5 overflow-hidden bg-white">
+                      <div className="w-10 h-10 rounded-full border-2 border-[#D4AF37] p-0.5 bg-white shadow-sm">
                         <img src={logo} alt="Logo" className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
                       </div>
-                      <div>
-                        <h2 className={`font-serif text-xl font-bold leading-none ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>আল-ইনসাফ</h2>
-                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-1">Al-Insaf Organization</p>
-                      </div>
+                      <h2 className={`font-serif text-lg font-bold leading-none ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>মেনু সূচি</h2>
                     </div>
-                    <button onClick={() => setIsMobileMenuOpen(false)} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-400 hover:bg-gray-100'}`}><X size={24} /></button>
+                    <button onClick={() => setIsMobileMenuOpen(false)} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-400 hover:bg-gray-100'}`}><X size={20} /></button>
                   </div>
 
-                  <div className={`space-y-1 mb-8 border-b pb-8 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                    {['হোম', 'বিস্তারিত', 'যোগাযোগ'].map((link, idx) => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { l: 'হোম', s: 'home', i: <LayoutDashboard size={18} />, c: 'emerald' },
+                      { l: 'বিস্তারিত', s: 'explore', i: <Info size={18} />, c: 'blue' },
+                      { l: 'যোগাযোগ', s: 'contact', i: <Mail size={18} />, c: 'orange' }
+                    ].map((item, idx) => (
                       <button 
                         key={idx} 
-                        onClick={() => { scrollToSection(link === 'হোম' ? 'home' : link === 'বিস্তারিত' ? 'explore' : 'contact'); setIsMobileMenuOpen(false); }} 
-                        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-base transition-all ${
+                        onClick={() => { scrollToSection(item.s); setIsMobileMenuOpen(false); }} 
+                        className={`flex flex-col items-center justify-center gap-1 p-3 rounded-2xl transition-all ${
                           isDarkMode 
-                            ? 'text-gray-300 hover:bg-gray-800 hover:text-white' 
-                            : 'text-[#064E3B] hover:bg-emerald-50 hover:text-[#064E3B]'
+                            ? 'bg-gray-800 text-gray-300 hover:text-white' 
+                            : `bg-${item.c}-50 text-${item.c}-600 hover:bg-${item.c}-100`
                         }`}
                       >
-                        {link}
-                        <ChevronRight size={18} className="opacity-30" />
+                        {item.i}
+                        <span className="font-bold text-[10px] uppercase tracking-tighter">{item.l}</span>
                       </button>
                     ))}
                   </div>
 
                   {userProfile ? (
-                    <div className="mb-6">
-                      <div className="flex items-center gap-4 mb-4">
-                        <div className="w-14 h-14 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#064E3B] text-xl font-bold shadow-inner">
+                    <div className="p-3 rounded-2xl bg-[#064E3B]/5 border border-[#064E3B]/10 flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#064E3B] text-base font-bold shadow-inner">
                           {userProfile?.displayName?.trim() ? userProfile.displayName.charAt(0) : 'U'}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className={`font-bold text-base truncate ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <div className="min-w-0">
+                          <h4 className={`font-bold text-[11px] truncate ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
                             {userProfile?.displayName?.trim() ? userProfile.displayName : 'সন্মানিত সদস্য'}
                           </h4>
-                          <p className="text-xs text-gray-400 font-bold truncate">নাম্বার: {userProfile?.identifier?.length === 10 ? '0' + userProfile.identifier : userProfile.identifier}</p>
+                          <p className="text-[9px] text-gray-400 font-bold truncate">আইডি: {userProfile?.shareholderCode || 'TBC'}</p>
                         </div>
                       </div>
-                      <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-bold text-red-500 hover:text-red-600 transition-colors"><LogOut size={18} /> লগআউট</button>
+                      <button onClick={handleLogout} className="p-2.5 rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-colors">
+                        <LogOut size={16} />
+                      </button>
                     </div>
                   ) : (
-                    <button onClick={() => { handleLogin(); setIsMobileMenuOpen(false); }} className="w-full flex items-center justify-center gap-2 py-4 bg-gray-50 text-[#064E3B] font-bold rounded-2xl mb-6 border-2 border-dashed border-gray-200"><LogIn size={20} /> লগইন করুন</button>
+                    <button onClick={() => { handleLogin(); setIsMobileMenuOpen(false); }} className="w-full flex items-center justify-center gap-2 py-3 bg-gray-50 text-[#064E3B] font-bold rounded-2xl border border-dashed border-gray-200 text-sm hover:bg-[#D4AF37]/10 transition-colors"><LogIn size={18} /> লগইন করুন</button>
                   )}
 
-                  <div className="space-y-4 mb-8">
-                    <p className="text-[10px] text-gray-400 font-bold leading-tight">আপনার গুরুত্বপূর্ণ তথ্য দেখতে নিচের বাটনগুলো ব্যবহার করুন।</p>
-                    
-                    <button onClick={() => { openModal('reports-search'); setIsMobileMenuOpen(false); }} className="w-full flex items-center gap-4 group transition-all p-1">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-50 text-gray-400 group-hover:bg-[#D4AF37]/10 group-hover:text-[#D4AF37]'}`}><Search size={22} /></div>
-                      <span className={`font-bold text-sm ${isDarkMode ? 'text-gray-300 group-hover:text-white' : 'text-gray-600 group-hover:text-[#064E3B]'}`}>রিপোর্ট সার্চ</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => { openModal('reports-search'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 p-3.5 rounded-2xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-emerald-50 text-[#064E3B] hover:bg-emerald-100 border border-emerald-100'}`}>
+                      <Search size={18} /><span className="font-bold text-[10px] uppercase">রিপোর্ট সার্চ</span>
                     </button>
-
+                    <button onClick={() => { openModal('my-account'); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 p-3.5 rounded-2xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-orange-50 text-orange-600 hover:bg-orange-100 border border-orange-100'}`}>
+                      <User size={18} /><span className="font-bold text-[10px] uppercase">ড্যাশবোর্ড</span>
+                    </button>
                     {(userProfile?.role === 'admin' || userProfile?.role === 'employee') && (
-                      <button onClick={() => { openModal('members-directory'); setIsMobileMenuOpen(false); fetchUsers(); }} className="w-full flex items-center gap-4 group transition-all p-1">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-50 text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-500'}`}><Users size={22} /></div>
-                        <span className={`font-bold text-sm ${isDarkMode ? 'text-gray-300 group-hover:text-white' : 'text-gray-600 group-hover:text-[#064E3B]'}`}>মেম্বার ডিরেক্টরি</span>
+                      <button onClick={() => { openModal('members-directory'); setIsMobileMenuOpen(false); fetchUsers(); }} className={`flex items-center gap-3 p-3.5 rounded-2xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-100'}`}>
+                        <Users size={18} /><span className="font-bold text-[10px] uppercase">ডিরেক্টরি</span>
                       </button>
                     )}
-
-                    <button onClick={() => { openModal('my-account'); setIsMobileMenuOpen(false); }} className="w-full flex items-center gap-4 group transition-all p-1">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-50 text-gray-400 group-hover:bg-emerald-50 group-hover:text-emerald-600'}`}><User size={22} /></div>
-                      <span className={`font-bold text-sm ${isDarkMode ? 'text-gray-300 group-hover:text-white' : 'text-gray-600 group-hover:text-[#064E3B]'}`}>আমার ড্যাশবোর্ড</span>
-                    </button>
-                    
                     {userProfile?.role === 'admin' && (
-                      <button onClick={() => { openAdminModal(); setIsMobileMenuOpen(false); }} className="w-full flex items-center gap-4 group transition-all p-1">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-50 text-gray-400 group-hover:bg-amber-50 group-hover:text-amber-600'}`}><Settings size={22} /></div>
-                        <span className={`font-bold text-sm ${isDarkMode ? 'text-gray-300 group-hover:text-white' : 'text-gray-600 group-hover:text-[#064E3B]'}`}>অ্যাডমিন প্যানেল</span>
+                      <button onClick={() => { openAdminModal(); setIsMobileMenuOpen(false); }} className={`flex items-center gap-3 p-3.5 rounded-2xl transition-all ${isDarkMode ? 'bg-gray-800 text-gray-300' : 'bg-amber-50 text-amber-600 hover:bg-amber-100 border border-amber-100'}`}>
+                        <Settings size={18} /><span className="font-bold text-[10px] uppercase">অ্যাডমিন</span>
                       </button>
                     )}
                   </div>
 
-                  <div className="space-y-3">
-                    <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="w-full bg-[#064E3B] text-white py-4 rounded-xl font-bold text-base shadow-lg shadow-emerald-900/10 active:scale-95 transition-all">যুক্ত হোন</button>
-                    <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="w-full bg-[#D4AF37] text-[#064E3B] py-4 rounded-xl font-bold text-base shadow-lg shadow-amber-600/10 active:scale-95 transition-all">সদস্য হোন</button>
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="w-full bg-[#064E3B] text-white py-3.5 rounded-2xl font-bold text-xs shadow-md shadow-emerald-900/10 active:scale-95 transition-all">যুক্ত হোন</button>
+                    <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="w-full bg-[#D4AF37] text-[#064E3B] py-3.5 rounded-2xl font-bold text-xs shadow-md shadow-amber-600/10 active:scale-95 transition-all">সদস্য হোন</button>
                   </div>
                 </div>
               </motion.div>
@@ -2407,48 +2462,51 @@ export default function App() {
                   </div>
                 </div>
               ) : activeModal === 'my-account' ? (
-                <div className="p-6 md:p-8">
-                  <div className="flex justify-between items-center mb-8 bg-emerald-50 -m-6 md:-m-8 p-6 md:p-8 border-b border-emerald-100 rounded-t-[2rem] md:rounded-t-[3rem]">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-3xl bg-[#064E3B] text-white flex items-center justify-center text-3xl font-serif">
-                        {userProfile?.displayName?.charAt(0) || 'U'}
+                <div className="flex flex-col h-full bg-gray-50">
+                  <div className="p-6 md:p-8 bg-emerald-50 border-b border-emerald-100 shrink-0">
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-16 h-16 rounded-2xl bg-[#064E3B] text-white flex items-center justify-center text-3xl font-serif shadow-lg shadow-emerald-900/20">
+                          {userProfile?.displayName?.charAt(0) || 'U'}
+                        </div>
+                        <div>
+                          <h2 className="font-serif text-2xl font-bold text-[#064E3B]">স্বাগতম</h2>
+                          <p className="text-sm font-bold text-emerald-800">{userProfile?.displayName}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h2 className="font-serif text-2xl font-bold text-[#064E3B]">স্বাগতম, {userProfile?.displayName?.split(' ').slice(0, 2).join(' ')}</h2>
-                        <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-widest mt-1">আপনার ব্যক্তিগত ড্যাশবোর্ড</p>
-                      </div>
-                    </div>
-                    <button onClick={closeModal} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm border border-gray-100 transition-all"><X size={24} /></button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 mt-10 md:mt-8">
-                    <div className="bg-white p-6 rounded-[2.5rem] border border-emerald-50 shadow-sm hover:shadow-md transition-all group">
-                       <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all"><User size={18} /></div>
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">প্রোফাইল তথ্য</p>
-                       <h3 className="text-xl font-bold text-[#064E3B] truncate">{userProfile?.displayName}</h3>
-                       <p className="text-[10px] text-gray-400 font-bold mt-1">ID: {userProfile?.shareholderCode}</p>
-                    </div>
-                    <div className="bg-white p-6 rounded-[2.5rem] border border-amber-50 shadow-sm hover:shadow-md transition-all group">
-                       <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 group-hover:bg-amber-600 group-hover:text-white transition-all"><Database size={18} /></div>
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">অ্যাকাউন্ট কোড</p>
-                       <h3 className="text-2xl font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'TBC'}</h3>
-                       <p className="text-[10px] text-gray-400 font-bold mt-1">ব্যবসায়িক আইডি</p>
-                    </div>
-                    <div className="bg-white p-6 rounded-[2.5rem] border border-emerald-50 shadow-sm hover:shadow-md transition-all group">
-                       <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all"><Activity size={18} /></div>
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">মোট সঞ্চয়</p>
-                       <h3 className="text-3xl font-serif font-bold text-emerald-600">
-                          ৳ {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0).toLocaleString('bn-BD')}
-                       </h3>
-                       <p className="text-[10px] text-gray-400 font-bold mt-1">সর্বশেষ আপডেট আজ</p>
+                      <button onClick={closeModal} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm border border-gray-100"><X size={24} /></button>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-[#064E3B] text-sm flex items-center gap-2">
-                       <Activity size={16} className="text-[#D4AF37]" /> সাম্প্রতিক পেমেন্ট হিস্ট্রি
-                    </h4>
-                    <div className="space-y-3 max-h-[40vh] overflow-y-auto no-scrollbar pr-1">
+                  <div className="flex-1 overflow-y-auto no-scrollbar p-5 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                       <div className="bg-[#064E3B] p-5 rounded-[2rem] shadow-xl text-white relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8"></div>
+                          <p className="text-[9px] font-bold text-emerald-200/50 uppercase tracking-widest mb-1">মোট সঞ্চয়</p>
+                          <h3 className="text-2xl font-serif font-bold text-[#D4AF37]">
+                             ৳ {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0).toLocaleString('bn-BD')}
+                          </h3>
+                       </div>
+                       <div className="grid grid-cols-2 gap-3">
+                         <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">সদস্য আইডি</p>
+                            <h3 className="text-sm font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'TBC'}</h3>
+                         </div>
+                         <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+                            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">রোল</p>
+                            <h3 className="text-sm font-bold text-[#D4AF37] capitalize">{userProfile?.role || 'সদস্য'}</h3>
+                         </div>
+                       </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-[#064E3B] text-sm flex items-center gap-2">
+                           <Activity size={16} className="text-[#D4AF37]" /> পেমেন্ট হিস্ট্রি
+                        </h4>
+                        <span className="text-[8px] font-bold text-gray-400 uppercase bg-gray-50 px-2 py-1 rounded-full">{personalReports.length} দিন</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[35vh] md:max-h-none overflow-y-auto no-scrollbar pr-1 pb-2">
                        {personalReports.length === 0 && (
                          <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border border-dashed border-gray-200">
                            <FileX size={40} className="mx-auto text-gray-200 mb-2" />
@@ -2523,7 +2581,8 @@ export default function App() {
                     <button onClick={closeModal} className="px-10 py-2.5 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg border border-[#064E3B]/20 hover:bg-black transition-all">বন্ধ করুন</button>
                   </div>
                 </div>
-              ) : activeModal === 'reports-search' ? (
+              </div>
+            ) : activeModal === 'reports-search' ? (
                 <div className="p-8">
                   <div className="flex justify-between items-center mb-8">
                     <div>
@@ -2611,7 +2670,9 @@ export default function App() {
                   <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">{activeCardData.content}</div>
                   <div className="p-4 border-t flex justify-end"><button onClick={closeModal} className="px-6 py-2 bg-gray-200 rounded-lg">বন্ধ করুন</button></div>
                 </>
-              ) : null}
+              ) : (
+                <div className="p-6">No content available.</div>
+              )}
             </motion.div>
           </div>
         )}
@@ -2621,6 +2682,7 @@ export default function App() {
         <LoginModal 
           onClose={() => setIsLoginModalOpen(false)} 
           onLogin={handleCustomLogin} 
+          onGoogleLogin={handleGoogleLogin}
           defaultRole={loginRole}
         />
       )}

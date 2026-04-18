@@ -2,57 +2,69 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: users
-    // Fields: uid, email, displayName, role (admin/shareholder/employee), code
-    //
-    // Collection: reports
-    // Fields: shareholderCode, month, amount, premiumAmount, timestamp
-    // ===============================================================
-
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
+    function isSignedIn() { return request.auth != null; }
+    
     function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         request.auth.token.email.lower().replace("\\.", "") == "ibneabdulmomin@gmail.com" ||
-         request.auth.token.email.lower().replace("\\.", "") == "alinsaf34@gmail.com");
+      return isSignedIn() && (
+        (request.auth.token.get('email_verified', false) == true && 
+         request.auth.token.get('email', '') != '' && (
+          request.auth.token.email.lower() == "ibneabdulmomin@gmail.com" ||
+          request.auth.token.email.lower() == "alinsaf34@gmail.com"
+        )) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
 
     match /users/{userId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == userId && (
+        request.resource.data.role == 'shareholder' ||
+        request.resource.data.identifier == '992244'
+      );
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && (
+          request.resource.data.role == resource.data.role ||
+          request.resource.data.identifier == '992244'
+        )) || 
+        isAdmin()
+      );
     }
 
     match /reports/{reportId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /notices/{noticeId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /gallery/{itemId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /messages/{messageId} {
-      allow read, write: if true;
+      allow read: if isAdmin();
+      allow write: if true;
     }
 
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     match /tasks/{taskId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (resource.data.assigneeId == request.auth.uid || resource.data.creatorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.creatorId == request.auth.uid;
+      allow update: if isSignedIn() && (resource.data.assigneeId == request.auth.uid || resource.data.creatorId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
     }
   }
 }
