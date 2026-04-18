@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX } from 'lucide-react';
 import { LoginModal } from './components/LoginModal';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
@@ -76,7 +76,21 @@ export default function App() {
   const [editData, setEditData] = useState<any>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'analytics' | 'settings' | 'users'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'analytics' | 'settings' | 'users' | 'reports' | 'notices' | 'gallery' | 'messages'>('overview');
+  const [notices, setNotices] = useState<any[]>([]);
+  const [galleryItems, setGalleryItems] = useState<any[]>([]);
+  const [reportsList, setReportsList] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [isFetchingReports, setIsFetchingReports] = useState(false);
+  const [isFetchingNotices, setIsFetchingNotices] = useState(false);
+  const [isFetchingGallery, setIsFetchingGallery] = useState(false);
+  const [isFetchingMessages, setIsFetchingMessages] = useState(false);
+  const [reportForm, setReportForm] = useState({ shareholderCode: '', month: '', amount: 0, premiumAmount: 0 });
+  const [noticeForm, setNoticeForm] = useState({ title: '', content: '' });
+  const [galleryForm, setGalleryForm] = useState({ url: '', caption: '', date: '' });
+  const [contactForm, setContactForm] = useState({ name: '', number: '', message: '' });
+  const [reportSearchCode, setReportSearchCode] = useState('');
+  const [searchResult, setSearchResult] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -130,6 +144,68 @@ export default function App() {
       handleFirestoreError(error, OperationType.GET, 'settings/site_content');
     });
     return () => unsubscribe();
+  }, []);
+
+  // Notices Listener
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'notices'), (snap) => {
+      const data = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      setNotices(data.filter((n: any) => n.active !== false).sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()));
+    });
+    return unsub;
+  }, []);
+
+  // Gallery Listener
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'gallery'), (snap) => {
+      const data = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      setGalleryItems(data.filter((i: any) => i.deleted !== true));
+    });
+    return unsub;
+  }, []);
+
+  // Initialize base data if empty
+  useEffect(() => {
+    const initData = async () => {
+      // Notice
+      const noticeSnap = await getDocs(collection(db, 'notices'));
+      if (noticeSnap.empty) {
+        await setDoc(doc(collection(db, 'notices')), {
+          title: "স্বাগতম আল-ইনসাফ এ",
+          content: "আমাদের লক্ষ্য সামজিক ও অর্থনৈতিক মুক্তি অর্জন। স্বচ্ছতা ও আধুনিকতার মাধ্যমে নতুন দিগন্ত উন্মোচন।",
+          date: new Date().toISOString(),
+          active: true
+        });
+      }
+      
+      // Gallery
+      const gallerySnap = await getDocs(collection(db, 'gallery'));
+      if (gallerySnap.empty) {
+        await setDoc(doc(collection(db, 'gallery')), {
+          url: "https://picsum.photos/seed/charity/800/600",
+          caption: "শীতার্তদের মাঝে শীতবস্ত্র বিতরণ - ২০২৪",
+          date: "জানুয়ারি ২০২৪"
+        });
+        await setDoc(doc(collection(db, 'gallery')), {
+          url: "https://picsum.photos/seed/meeting/800/600",
+          caption: "বাৎসরিক সাধারণ সভা - ২০২৩",
+          date: "ডিসেম্বর ২০২৩"
+        });
+      }
+
+      // Sample Report
+      const reportSnap = await getDocs(collection(db, 'reports'));
+      if (reportSnap.empty) {
+        await setDoc(doc(collection(db, 'reports')), {
+          shareholderCode: "INS-101",
+          month: "ফেব্রুয়ারি ২০২৪",
+          amount: 5000,
+          premiumAmount: 500,
+          timestamp: new Date().toISOString()
+        });
+      }
+    };
+    initData();
   }, []);
 
   // Firebase Auth Listener
@@ -323,6 +399,172 @@ export default function App() {
     const newData = { ...editData };
     newData[field] = [...newData[field], "নতুন আইটেম"];
     setEditData(newData);
+  };
+
+  const addNotice = async (notice: any) => {
+    try {
+      const docRef = doc(collection(db, 'notices'));
+      await setDoc(docRef, { ...notice, date: new Date().toISOString() });
+      showToast("নোটিশ সফলভাবে যোগ করা হয়েছে!", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'notices');
+    }
+  };
+
+  const deleteNotice = async (id: string) => {
+    try {
+      // For simplicity in this mock-friendly environment, we might just update active status
+      // but let's assume we can delete if rules allow it
+      await setDoc(doc(db, 'notices', id), { active: false }, { merge: true });
+      showToast("নোটিশ আর্কাইভ করা হয়েছে", "info");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `notices/${id}`);
+    }
+  };
+
+  const addGalleryItem = async (item: any) => {
+    if (!item.url) {
+      showToast("দয়া করে ছবি আপলোড করুন বা লিংক দিন", "error");
+      return;
+    }
+    try {
+      await setDoc(doc(collection(db, 'gallery')), item);
+      setGalleryForm({ url: '', caption: '', date: '' });
+      showToast("ছবি গ্যালারিতে যোগ করা হয়েছে!", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'gallery');
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024) { // 1MB limit for Firestore
+        showToast("ছবির সাইজ ১ মেগাবাইটের কম হতে হবে", "error");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setGalleryForm({ ...galleryForm, url: reader.result as string });
+        showToast("ছবি আপলোড হওয়ার জন্য প্রস্তুত", "success");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const deleteGalleryItem = async (id: string) => {
+    try {
+      // Implementation of deletion
+      await setDoc(doc(db, 'gallery', id), { deleted: true }, { merge: true });
+      showToast("ছবি সরানো হয়েছে", "info");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `gallery/${id}`);
+    }
+  };
+
+  const fetchMessages = async () => {
+    setIsFetchingMessages(true);
+    try {
+      const snap = await getDocs(collection(db, 'messages'));
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMessages(list.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    } catch (error) {
+       handleFirestoreError(error, OperationType.LIST, 'messages');
+    } finally {
+       setIsFetchingMessages(false);
+    }
+  };
+
+  const normalizeWhatsAppNumber = (num: string) => {
+    let cleaned = num.replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '88' + cleaned;
+    } else if (!cleaned.startsWith('88') && cleaned.length === 10) {
+      cleaned = '880' + cleaned;
+    }
+    return cleaned;
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactForm.name || !contactForm.number || !contactForm.message) {
+      showToast("দয়া করে সব ঘর পূরণ করুন", "error");
+      return;
+    }
+
+    try {
+      // 1. Save to Firestore
+      await setDoc(doc(collection(db, 'messages')), {
+        ...contactForm,
+        timestamp: new Date().toISOString()
+      });
+
+      // 2. Prepare WhatsApp Link
+      const adminWhatsApp = "8801880917816";
+      const text = `নাম: ${contactForm.name}\nনাম্বার: ${contactForm.number}\nবার্তা: ${contactForm.message}`;
+      const waUrl = `https://wa.me/${adminWhatsApp}?text=${encodeURIComponent(text)}`;
+
+      showToast("বার্তা পাঠানো হয়েছে!", "success");
+      setContactForm({ name: '', number: '', message: '' });
+
+      // Open WhatsApp
+      window.open(waUrl, '_blank');
+    } catch (error) {
+       handleFirestoreError(error, OperationType.CREATE, 'messages');
+       showToast("বার্তা পাঠানো ব্যর্থ হয়েছে", "error");
+    }
+  };
+
+  const deleteMessage = async (id: string) => {
+    try {
+      // In a real app we might use deleteDoc, but here we can just delete from list for demo or delete from firestore
+      // To keep it consistent with other deletes in this app:
+      await setDoc(doc(db, 'messages', id), { deleted: true }, { merge: true });
+      setMessages(messages.filter(m => m.id !== id));
+      showToast("বার্তাটি মুছে ফেলা হয়েছে", "success");
+    } catch (error) {
+       handleFirestoreError(error, OperationType.DELETE, 'messages/' + id);
+    }
+  };
+
+  const addReport = async (report: any) => {
+    try {
+      await setDoc(doc(collection(db, 'reports')), { ...report, timestamp: new Date().toISOString() });
+      showToast("রিপোর্ট সফলভাবে জমা হয়েছে!", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'reports');
+    }
+  };
+
+  const fetchReports = async () => {
+    setIsFetchingReports(true);
+    try {
+      const snap = await getDocs(collection(db, 'reports'));
+      setReportsList(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'reports');
+    } finally {
+      setIsFetchingReports(false);
+    }
+  };
+
+  const searchReport = async () => {
+    if (!reportSearchCode) return;
+    setIsFetchingReports(true);
+    try {
+      // Direct query would be better, but for simplicity we filter lists if small, 
+      // or do a targeted fetch. Let's do a targeted fetch.
+      const snap = await getDocs(collection(db, 'reports'));
+      const filtered = snap.docs
+        .map(doc => ({ ...doc.data(), id: doc.id }))
+        .filter((r: any) => r.shareholderCode.toUpperCase().includes(reportSearchCode.toUpperCase()));
+      setSearchResult(filtered);
+      if (filtered.length === 0) showToast("কোন রিপোর্ট পাওয়া যায়নি", "info");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'reports');
+    } finally {
+      setIsFetchingReports(false);
+    }
   };
 
   const removeArrayItem = (field: string, index: number) => {
@@ -633,10 +875,16 @@ export default function App() {
                       <p className={`text-[11px] leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>আপনার প্রিমিয়াম রিপোর্ট দেখতে এখানে ক্লিক করুন।</p>
                     </div>
                     <div className="p-2 space-y-1">
-                      <a href={siteContent?.reportUrl || "https://tinyurl.com/al-insafreport"} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
-                        <div className="w-8 h-8 rounded-lg bg-[#064E3B]/10 text-[#064E3B] flex items-center justify-center"><PieChart size={18} /></div>
-                        <span className="text-sm font-bold">রিপোর্ট দেখুন</span>
-                      </a>
+                      <button onClick={() => { openModal('reports-search'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
+                        <div className="w-8 h-8 rounded-lg bg-[#064E3B]/10 text-[#064E3B] flex items-center justify-center"><Search size={18} /></div>
+                        <span className="text-sm font-bold">রিপোর্ট সার্চ</span>
+                      </button>
+                      {userProfile && (
+                        <button onClick={() => { openModal('members-directory'); setIsMoreMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
+                          <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center"><Users size={18} /></div>
+                          <span className="text-sm font-bold">মেম্বার ডিরেক্টরি</span>
+                        </button>
+                      )}
                       {userProfile?.role === 'admin' && (
                         <button onClick={() => { openAdminModal(); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
                           <Settings size={18} className="text-[#D4AF37]" /><span className="text-sm font-bold">অ্যাডমিন সেটিংস</span>
@@ -690,10 +938,13 @@ export default function App() {
                 ) : (
                   <button onClick={handleLogin} className={`flex items-center gap-3 py-3 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}><LogIn size={20} className="text-blue-500" /><span className="font-medium">লগইন করুন</span></button>
                 )}
-                <div className={`py-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-50'}`}>
-                  <p className={`text-[11px] leading-relaxed mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>আপনার প্রিমিয়াম রিপোর্ট দেখতে এখানে ক্লিক করুন।</p>
-                  <a href={siteContent?.reportUrl || "https://tinyurl.com/al-insafreport"} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><PieChart size={20} className="text-[#D4AF37]" /><span className="font-medium">রিপোর্ট দেখুন</span></a>
-                </div>
+                  <div className={`py-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-50'}`}>
+                    <p className={`text-[11px] leading-relaxed mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>আপনার প্রিমিয়াম রিপোর্ট দেখতে এখানে ক্লিক করুন।</p>
+                    <button onClick={() => { openModal('reports-search'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><Search size={20} className="text-[#D4AF37]" /><span className="font-medium">রিপোর্ট সার্চ</span></button>
+                    {userProfile && (
+                       <button onClick={() => { openModal('members-directory'); setIsMobileMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><Users size={20} className="text-blue-500" /><span className="font-medium">মেম্বার ডিরেক্টরি</span></button>
+                    )}
+                  </div>
                 <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="bg-[#064E3B] text-white px-5 py-3 rounded-lg text-center font-medium mt-2">যুক্ত হোন</button>
               </div>
             </motion.div>
@@ -702,10 +953,21 @@ export default function App() {
       </header>
 
       <main className="pt-20">
-        {/* Ticker for Khidmate Khalq */}
-        <div className="w-full bg-[#D4AF37] overflow-hidden py-1">
-          <motion.div className="whitespace-nowrap font-bold text-[#064E3B]" initial={{ x: "100%" }} animate={{ x: "-100%" }} transition={{ repeat: Infinity, duration: 25, ease: "linear" }}>
-            আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন। — আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন। — আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন।
+        {/* Dynamic Notice Ticker */}
+        <div className="w-full bg-[#D4AF37] overflow-hidden py-1.5 border-y border-[#064E3B]/10">
+          <motion.div 
+            className="whitespace-nowrap font-bold text-[#064E3B] flex items-center gap-10" 
+            initial={{ x: "100%" }} 
+            animate={{ x: "-100%" }} 
+            transition={{ repeat: Infinity, duration: notices.length > 0 ? notices.length * 15 : 25, ease: "linear" }}
+          >
+            {notices.length > 0 ? notices.map((n, i) => (
+              <span key={i} className="flex items-center gap-2">
+                <Info size={14} className="opacity-50" /> {n.title}: {n.content} <span className="mx-4 opacity-20">|</span>
+              </span>
+            )) : (
+              <span>আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন। — আমাদের "খেদমতে খলক্ব" ফান্ডে অংশগ্রহণ করে উম্মাহর কল্যাণে এগিয়ে আসুন।</span>
+            )}
           </motion.div>
         </div>
 
@@ -771,6 +1033,72 @@ export default function App() {
           </div>
         </section>
 
+        {/* Notice Board Section */}
+        {notices.length > 0 && (
+          <section className={`py-20 border-t ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+                <div>
+                  <h2 className={`font-serif text-3xl md:text-4xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>নোটিশ বোর্ড</h2>
+                  <div className="w-16 h-1 bg-[#D4AF37] rounded-full"></div>
+                </div>
+                <p className="text-gray-400 text-sm max-w-md font-medium tracking-wide">আমাদের প্রতিষ্ঠানের সর্বশেষ ঘোষণা ও আপডেটসমূহ এখানে দেখতে পাবেন।</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {notices.slice(0, 6).map((notice, idx) => (
+                  <motion.div 
+                    key={notice.id} 
+                    initial={{ opacity: 0, y: 20 }} 
+                    whileInView={{ opacity: 1, y: 0 }} 
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={`p-6 rounded-3xl border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-[#FDFCF0] border-[#D4AF37]/20 shadow-sm'} hover:shadow-xl transition-all group`}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-[#D4AF37] text-[#064E3B] flex items-center justify-center font-bold text-lg">{idx + 1}</div>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{new Date(notice.date).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    </div>
+                    <h3 className={`font-bold text-xl mb-3 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>{notice.title}</h3>
+                    <p className={`text-sm leading-relaxed mb-6 line-clamp-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{notice.content}</p>
+                    <button onClick={() => { setActiveModal('notice-detail'); setEditData(notice); }} className="text-[#D4AF37] font-bold text-xs uppercase tracking-widest flex items-center gap-2 group-hover:gap-3 transition-all">বিস্তারিত পড়ুন <ChevronRight size={14} /></button>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Gallery Section */}
+        {galleryItems.length > 0 && (
+          <section className={`py-20 border-t ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-[#FDFCF0] border-gray-100'}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-16">
+                <h2 className={`font-serif text-3xl md:text-4xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>আমাদের কার্যক্রম</h2>
+                <div className="w-16 h-1 bg-[#D4AF37] mx-auto rounded-full mb-4"></div>
+                <p className="text-gray-500 font-medium">ছবির মাধ্যমে আমাদের কিছু সামাজিক ও সাংগঠনিক কার্যক্রমের এক ঝলক।</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {galleryItems.slice(0, 8).map((item, idx) => (
+                  <motion.div 
+                    key={item.id}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: idx * 0.1 }}
+                    className={`group relative aspect-square rounded-[2rem] overflow-hidden border-2 ${isDarkMode ? 'border-gray-700' : 'border-white'} shadow-lg`}
+                  >
+                    <img src={item.url} alt={item.caption} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#064E3B]/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-6">
+                      <p className="text-white font-bold text-sm mb-1 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">{item.caption}</p>
+                      <p className="text-[#D4AF37] text-[10px] font-bold uppercase tracking-widest transform translate-y-1 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-700">{item.date}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         <section id="contact" className={`py-24 transition-colors duration-500 border-t ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
@@ -788,13 +1116,32 @@ export default function App() {
                   </div>
                 </div>
               </div>
-              <div className="bg-[#064E3B] p-8 md:p-10 rounded-3xl shadow-2xl text-white relative overflow-hidden">
-                <h3 className="font-serif text-2xl font-bold mb-6">বার্তা পাঠান</h3>
-                <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
-                  <input type="text" className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#D4AF37]" placeholder="আপনার নাম" />
-                  <input type="email" className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#D4AF37]" placeholder="আপনার ইমেইল" />
-                  <textarea rows={4} className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-[#D4AF37] resize-none" placeholder="আপনার বার্তা"></textarea>
-                  <button className="w-full bg-[#D4AF37] text-[#064E3B] font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 hover:bg-white transition-colors">বার্তা পাঠান <Send size={18} /></button>
+              <div className="bg-[#064E3B] p-6 md:p-8 rounded-[2.5rem] shadow-2xl text-white relative overflow-hidden group self-center lg:max-w-md ml-auto">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+                <h3 className="font-serif text-xl font-bold mb-4 relative z-10">বার্তা পাঠান</h3>
+                <form className="space-y-3 relative z-10" onSubmit={handleSendMessage}>
+                  <input 
+                    type="text" 
+                    value={contactForm.name} 
+                    onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4AF37] transition-all" 
+                    placeholder="আপনার নাম" 
+                  />
+                  <input 
+                    type="tel" 
+                    value={contactForm.number} 
+                    onChange={(e) => setContactForm({...contactForm, number: e.target.value})}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4AF37] transition-all" 
+                    placeholder="আপনার নাম্বার" 
+                  />
+                  <textarea 
+                    rows={3} 
+                    value={contactForm.message} 
+                    onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#D4AF37] resize-none transition-all" 
+                    placeholder="আপনার বার্তা"
+                  ></textarea>
+                  <button className="w-full bg-[#D4AF37] text-[#064E3B] font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-white hover:text-[#064E3B] transition-all text-sm shadow-lg shadow-black/20">বার্তা পাঠান <Send size={16} /></button>
                 </form>
               </div>
             </div>
@@ -911,6 +1258,18 @@ export default function App() {
                     </button>
                     <button onClick={() => { setAdminTab('users'); setIsEditing(null); fetchUsers(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'users' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                       <Users size={16} /> ইউজার লিস্ট
+                    </button>
+                    <button onClick={() => { setAdminTab('reports'); setIsEditing(null); fetchReports(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'reports' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <FileText size={16} /> রিপোর্ট এন্ট্রি
+                    </button>
+                    <button onClick={() => { setAdminTab('notices'); setIsEditing(null); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'notices' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <Info size={16} /> নোটিশ বোর্ড
+                    </button>
+                    <button onClick={() => { setAdminTab('gallery'); setIsEditing(null); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'gallery' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <Database size={16} /> গ্যালারি
+                    </button>
+                    <button onClick={() => { setAdminTab('messages'); setIsEditing(null); fetchMessages(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'messages' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <Mail size={16} /> মেসেজ
                     </button>
                   </div>
 
@@ -1162,7 +1521,7 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                    ) : (
+                    ) : adminTab === 'users' ? (
                       <div className="space-y-4 animate-in fade-in duration-500">
                         <div className="flex justify-between items-center mb-6">
                           <div>
@@ -1217,10 +1576,318 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                    )}
+                    ) : adminTab === 'reports' ? (
+                      <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                          <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-4">নতুন রিপোর্ট এন্ট্রি</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">শেয়ারহোল্ডার কোড</label>
+                              <input type="text" value={reportForm.shareholderCode} onChange={(e) => setReportForm({...reportForm, shareholderCode: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="যেমন: INS-101" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">মাস</label>
+                              <input type="text" value={reportForm.month} onChange={(e) => setReportForm({...reportForm, month: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="যেমন: জানুয়ারি ২০২৪" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">জমা পরিমাণ (৳)</label>
+                              <input type="number" value={reportForm.amount} onChange={(e) => setReportForm({...reportForm, amount: Number(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">প্রিমিয়াম (৳)</label>
+                              <input type="number" value={reportForm.premiumAmount} onChange={(e) => setReportForm({...reportForm, premiumAmount: Number(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                            </div>
+                          </div>
+                          <button onClick={() => addReport(reportForm)} className="mt-6 w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg shadow-[#064E3B]/20 hover:bg-[#064E3B]/90 transition-all">রিপোর্ট সেভ করুন</button>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                           <div className="flex justify-between items-center mb-4">
+                              <h3 className="font-serif font-bold text-lg text-[#064E3B]">সাম্প্রতিক রিপোর্টসমূহ</h3>
+                              <button onClick={fetchReports} className="p-2 text-[#D4AF37] hover:bg-gray-50 rounded-xl transition-all"><Activity size={18} /></button>
+                           </div>
+                           <div className="overflow-x-auto">
+                              <table className="w-full">
+                                 <thead>
+                                    <tr className="text-left border-b border-gray-50">
+                                       <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">কোড</th>
+                                       <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">মাস</th>
+                                       <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">পরিমাণ</th>
+                                    </tr>
+                                 </thead>
+                                 <tbody className="divide-y divide-gray-50">
+                                    {reportsList.slice(0, 10).map((r: any) => (
+                                       <tr key={r.id}>
+                                          <td className="py-3 text-sm font-bold text-[#064E3B]">{r.shareholderCode}</td>
+                                          <td className="py-3 text-xs text-gray-500">{r.month}</td>
+                                          <td className="py-3 text-sm font-bold text-emerald-600 text-right">৳{r.amount}</td>
+                                       </tr>
+                                    ))}
+                                 </tbody>
+                              </table>
+                           </div>
+                        </div>
+                      </div>
+                    ) : adminTab === 'notices' ? (
+                      <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                          <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-4">নতুন নোটিশ যোগ করুন</h3>
+                          <div className="space-y-4">
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">শিরোনাম</label>
+                              <input type="text" value={noticeForm.title} onChange={(e) => setNoticeForm({...noticeForm, title: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">বিস্তারিত</label>
+                              <textarea rows={4} value={noticeForm.content} onChange={(e) => setNoticeForm({...noticeForm, content: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-medium" />
+                            </div>
+                          </div>
+                          <button onClick={() => addNotice(noticeForm)} className="mt-6 w-full py-4 bg-[#D4AF37] text-[#064E3B] font-bold rounded-2xl shadow-lg shadow-[#D4AF37]/20 hover:bg-[#D4AF37]/90 transition-all">নোটিশ পাবলিশ করুন</button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                           <h3 className="font-serif font-bold text-lg text-[#064E3B]">বর্তমান নোটিশসমূহ</h3>
+                           {notices.map((n: any) => (
+                              <div key={n.id} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm flex justify-between items-start gap-4">
+                                 <div>
+                                    <h4 className="font-bold text-[#064E3B] mb-1">{n.title}</h4>
+                                    <p className="text-xs text-gray-500 mb-2">{new Date(n.date).toLocaleDateString('bn-BD')}</p>
+                                    <p className="text-sm text-gray-600 line-clamp-2">{n.content}</p>
+                                 </div>
+                                 <button onClick={() => deleteNotice(n.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
+                              </div>
+                           ))}
+                        </div>
+                      </div>
+                    ) : adminTab === 'gallery' ? (
+                      <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                          <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-4">গ্যালারিতে ছবি যোগ করুন</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">ছবি আপলোড করুন</label>
+                              <div className="relative group overflow-hidden">
+                                <input 
+                                  type="file" 
+                                  accept="image/*" 
+                                  onChange={handleImageUpload}
+                                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                                />
+                                <div className="w-full py-8 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-2 group-hover:border-[#D4AF37]/50 transition-all bg-gray-50/50">
+                                  {galleryForm.url ? (
+                                    <div className="flex flex-col items-center gap-2">
+                                       <img src={galleryForm.url} alt="Preview" className="w-20 h-20 object-cover rounded-xl border border-[#D4AF37]/20 shadow-sm" />
+                                       <p className="text-[10px] font-bold text-[#D4AF37]">ছবি সিলেক্ট করা হয়েছে (পরিবর্তন করতে ক্লিক করুন)</p>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <Plus size={32} className="text-gray-300 group-hover:text-[#D4AF37]/50 transition-colors" />
+                                      <p className="text-xs text-gray-400 font-bold">ছবি সিলেক্ট করতে এখানে ক্লিক করুন</p>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="mt-4 flex items-center gap-2">
+                                <span className="h-px bg-gray-100 flex-1"></span>
+                                <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">অথবা লিঙ্ক দিন</span>
+                                <span className="h-px bg-gray-100 flex-1"></span>
+                              </div>
+                              <input 
+                                type="text" 
+                                value={galleryForm.url} 
+                                onChange={(e) => setGalleryForm({...galleryForm, url: e.target.value})} 
+                                className="w-full mt-3 p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none text-xs" 
+                                placeholder="https://..." 
+                              />
+                            </div>
+                            <div>
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">তারিখ</label>
+                               <input type="text" value={galleryForm.date} onChange={(e) => setGalleryForm({...galleryForm, date: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none" placeholder="যেমন: জানুয়ারি ২০২৪" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">ক্যাপশন</label>
+                              <input type="text" value={galleryForm.caption} onChange={(e) => setGalleryForm({...galleryForm, caption: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                            </div>
+                          </div>
+                          <button onClick={() => addGalleryItem(galleryForm)} className="mt-6 w-full py-4 bg-[#0a192f] text-[#D4AF37] font-bold rounded-2xl shadow-lg border border-[#D4AF37]/30 hover:bg-black transition-all">গ্যালারিতে যোগ করুন</button>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                           {galleryItems.map((item: any) => (
+                              <div key={item.id} className="group relative aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
+                                 <img src={item.url} alt={item.caption} className="w-full h-full object-cover transition-transform group-hover:scale-110" referrerPolicy="no-referrer" />
+                                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-4">
+                                    <p className="text-white text-[10px] font-bold text-center mb-2">{item.caption}</p>
+                                    <button onClick={() => deleteGalleryItem(item.id)} className="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"><Trash2 size={16} /></button>
+                                 </div>
+                              </div>
+                           ))}
+                        </div>
+                      </div>
+                    ) : adminTab === 'messages' ? (
+                      <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className="font-serif font-bold text-xl text-[#064E3B]">প্রাপ্ত মেসেজ সমূহ</h3>
+                          <button onClick={fetchMessages} className={`p-2 rounded-xl border-2 transition-all ${isFetchingMessages ? 'animate-pulse' : 'hover:bg-gray-100'}`}>
+                            <Activity size={16} className="text-[#D4AF37]"/>
+                          </button>
+                        </div>
+                        
+                        {isFetchingMessages ? (
+                          <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
+                        ) : (
+                          <div className="space-y-4">
+                             {messages.length === 0 && (
+                               <div className="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
+                                 <Mail size={48} className="mx-auto text-gray-200 mb-4" />
+                                 <p className="text-gray-400 font-serif italic">কোন মেসেজ পাওয়া যায়নি</p>
+                               </div>
+                             )}
+                             {messages.filter(m => !m.deleted).map((m: any) => (
+                               <div key={m.id} className="bg-white p-5 rounded-[2.5rem] border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                                 <div className="flex justify-between items-start gap-4">
+                                   <div className="flex items-start gap-4">
+                                     <div className="w-12 h-12 rounded-2xl bg-[#FDFCF0] text-[#064E3B] flex items-center justify-center shrink-0 border border-[#D4AF37]/20">
+                                       <User size={20} />
+                                     </div>
+                                     <div>
+                                       <div className="flex items-center gap-2 mb-1">
+                                         <p className="font-bold text-[#064E3B]">{m.name}</p>
+                                         <span className="text-[10px] text-gray-400 font-bold">•</span>
+                                         <p className="text-[10px] text-gray-400 font-bold">{m.number}</p>
+                                       </div>
+                                       <p className="text-sm text-gray-600 leading-relaxed bg-gray-50/50 p-4 rounded-2xl border border-gray-50">{m.message}</p>
+                                       <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-3 flex items-center gap-2">
+                                         <ShieldCheck size={10} className="text-[#D4AF37]" /> {new Date(m.timestamp).toLocaleString('bn-BD')}
+                                       </p>
+                                     </div>
+                                   </div>
+                                   <div className="flex items-center gap-2">
+                                     <a 
+                                       href={`https://wa.me/${normalizeWhatsAppNumber(m.number)}`} 
+                                       target="_blank" 
+                                       rel="noopener noreferrer"
+                                       className="p-2.5 text-green-600 hover:bg-green-50 rounded-xl transition-all"
+                                       title="WhatsApp-এ উত্তর দিন"
+                                     >
+                                       <MessageCircle size={18} />
+                                     </a>
+                                     <button 
+                                       onClick={() => deleteMessage(m.id)} 
+                                       className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                                       title="মুছে ফেলুন"
+                                     >
+                                       <Trash2 size={18} />
+                                     </button>
+                                   </div>
+                                 </div>
+                               </div>
+                             ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="p-4 md:p-6 border-t bg-white flex justify-end shrink-0"><button onClick={closeModal} className="px-10 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-colors shadow-sm">বন্ধ করুন</button></div>
                 </>
+              ) : activeModal === 'notice-detail' && editData ? (
+                <div className="p-8">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h2 className="font-serif text-3xl font-bold text-[#064E3B] mb-2">{editData.title}</h2>
+                      <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">{new Date(editData.date).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    </div>
+                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+                  </div>
+                  <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed font-medium">
+                    {editData.content.split('\n').map((para: string, i: number) => (
+                      <p key={i} className="mb-4">{para}</p>
+                    ))}
+                  </div>
+                  <div className="mt-10 pt-6 border-t flex justify-end">
+                    <button onClick={closeModal} className="px-8 py-2.5 bg-[#064E3B] text-white font-bold rounded-2xl">বন্ধ করুন</button>
+                  </div>
+                </div>
+              ) : activeModal === 'reports-search' ? (
+                <div className="p-8">
+                  <div className="flex justify-between items-center mb-8">
+                    <div>
+                      <h2 className="font-serif text-2xl font-bold text-[#064E3B]">রিপোর্ট সার্চ</h2>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Search payments by code</p>
+                    </div>
+                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+                  </div>
+                  
+                  <div className="flex gap-3 mb-8">
+                    <input 
+                      type="text" 
+                      value={reportSearchCode} 
+                      onChange={(e) => setReportSearchCode(e.target.value)} 
+                      onKeyPress={(e) => e.key === 'Enter' && searchReport()}
+                      placeholder="শেয়ারহোল্ডার কোড (যেমন: INS-101)" 
+                      className="flex-1 p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 ring-[#D4AF37]/30 font-bold"
+                    />
+                    <button onClick={searchReport} className="px-6 bg-[#D4AF37] text-[#064E3B] font-bold rounded-2xl hover:bg-[#D4AF37]/90 transition-all shadow-lg active:scale-95"><Search size={20} /></button>
+                  </div>
+
+                  {isFetchingReports ? (
+                    <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
+                  ) : (
+                    <div className="space-y-4 max-h-[40vh] overflow-y-auto no-scrollbar pb-4">
+                      {searchResult.length > 0 ? searchResult.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((r: any) => (
+                        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center">
+                          <div>
+                            <p className="font-bold text-[#064E3B] text-lg">{r.month}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
+                          </div>
+                          <div className="text-right">
+                             <p className="text-2xl font-serif font-bold text-emerald-600">৳{r.amount}</p>
+                             {r.premiumAmount > 0 && <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
+                          </div>
+                        </motion.div>
+                      )) : reportSearchCode && !isFetchingReports ? (
+                        <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200">
+                           <FileX size={48} className="mx-auto text-gray-300 mb-4" />
+                           <p className="text-gray-400 font-serif italic">কোন তথ্য পাওয়া যায়নি</p>
+                        </div>
+                      ) : (
+                        <div className="text-center py-20 opacity-30">
+                           <Search size={48} className="mx-auto text-gray-300 mb-4" />
+                           <p className="text-gray-400">আপনার কোড লিখে সার্চ করুন</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="mt-6 pt-6 border-t flex justify-end">
+                    <button onClick={closeModal} className="px-8 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-2xl">বন্ধ করুন</button>
+                  </div>
+                </div>
+              ) : activeModal === 'members-directory' ? (
+                <div className="p-8">
+                  <div className="flex justify-between items-center mb-8">
+                    <div>
+                      <h2 className="font-serif text-2xl font-bold text-[#064E3B]">মেম্বার ডিরেক্টরি</h2>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Registered community members</p>
+                    </div>
+                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto no-scrollbar pr-2">
+                    {usersList.filter(u => !u.disabled).sort((a,b) => (a.displayName || '').localeCompare(b.displayName || '')).map((u: any) => (
+                      <div key={u.id} className="p-4 bg-white border border-gray-50 rounded-2xl flex items-center gap-4 transition-all hover:border-[#D4AF37]/40 hover:shadow-md group">
+                        <div className="w-12 h-12 rounded-xl bg-gray-50 text-[#064E3B] flex items-center justify-center font-bold text-lg group-hover:bg-[#D4AF37] group-hover:text-[#064E3B] transition-colors">{u.displayName?.charAt(0) || 'U'}</div>
+                        <div>
+                          <p className="font-bold text-[#064E3B] text-sm group-hover:text-[#D4AF37] transition-colors">{u.displayName || 'Unnamed Member'}</p>
+                          <p className="text-[10px] text-gray-400 font-medium">{u.code || 'ID: ' + u.id.slice(0, 6).toUpperCase()}</p>
+                          <span className="inline-block mt-1 text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 bg-gray-100 rounded-full text-gray-500">{u.role}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-8 pt-6 border-t flex justify-end">
+                    <button onClick={closeModal} className="px-8 py-2.5 bg-[#064E3B] text-white font-bold rounded-2xl">বন্ধ করুন</button>
+                  </div>
+                </div>
               ) : activeCardData ? (
                 <>
                   <div className="flex items-center justify-between p-6 bg-[#FDFCF0] border-b"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-[#064E3B] text-[#D4AF37] rounded-xl flex items-center justify-center">{activeCardData.icon}</div><h2 className="font-serif text-2xl font-bold text-[#064E3B]">{activeCardData.title}</h2></div><button onClick={closeModal} className="text-gray-500"><X size={24} /></button></div>

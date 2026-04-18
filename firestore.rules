@@ -35,6 +35,18 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /notices/{noticeId} {
+      allow read, write: if true;
+    }
+
+    match /gallery/{itemId} {
+      allow read, write: if true;
+    }
+
+    match /messages/{messageId} {
+      allow read, write: if true;
+    }
+
     match /settings/{settingId} {
       allow read, write: if true;
     }

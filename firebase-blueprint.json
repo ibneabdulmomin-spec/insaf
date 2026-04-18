@@ -26,6 +26,29 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["shareholderCode", "month", "amount"]
+    },
+    "Notice": {
+      "title": "Notice",
+      "description": "Announcements for the organization",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "active": { "type": "boolean", "default": true }
+      },
+      "required": ["title", "content", "date"]
+    },
+    "GalleryItem": {
+      "title": "Gallery Item",
+      "description": "Images of social and organizational activities",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "caption": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["url"]
     }
   },
   "firestore": {
@@ -36,6 +59,14 @@
     "/reports/{reportId}": {
       "schema": "ShareholderReport",
       "description": "Shareholder payment reports"
+    },
+    "/notices/{noticeId}": {
+      "schema": "Notice",
+      "description": "Organization announcements"
+    },
+    "/gallery/{itemId}": {
+      "schema": "GalleryItem",
+      "description": "Activity images"
     }
   }
 }
