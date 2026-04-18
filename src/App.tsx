@@ -96,6 +96,7 @@ export default function App() {
   const [personalReports, setPersonalReports] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [loginRole, setLoginRole] = useState<'admin' | 'user' | undefined>(undefined);
   const [isFetchingReports, setIsFetchingReports] = useState(false);
   const [isFetchingNotices, setIsFetchingNotices] = useState(false);
   const [isFetchingGallery, setIsFetchingGallery] = useState(false);
@@ -164,10 +165,11 @@ export default function App() {
 
       for (const m of officialMembers) {
         const uid = "user_" + m.code;
+        const normalizedMobile = normalizeIdentifier(m.mobile);
         // Update user profile
         await setDoc(doc(db, 'users', uid), {
           uid,
-          identifier: m.mobile,
+          identifier: normalizedMobile,
           displayName: m.name,
           shareholderCode: m.code,
           role: 'shareholder',
@@ -750,20 +752,18 @@ export default function App() {
     // Reports are now fetched via real-time listener when on reports tab
   };
 
-  const fetchTasks = async () => {
-    setIsFetchingTasks(true);
-    try {
+  // Real-time listener for tasks when admin tab is open
+  useEffect(() => {
+    if (activeModal === 'admin-settings' && adminTab === 'tasks') {
       const q = query(collection(db, 'tasks'));
       const unsub = onSnapshot(q, (snap) => {
         setTasks(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Task)));
-        setIsFetchingTasks(false);
+      }, (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'tasks');
       });
-      return unsub;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'tasks');
-      setIsFetchingTasks(false);
+      return () => unsub();
     }
-  };
+  }, [activeModal, adminTab]);
 
   const addTask = async () => {
     if (!taskForm.title || !taskForm.assigneeId) {
@@ -983,17 +983,27 @@ export default function App() {
     }
   ];
 
-  const handleLogin = () => {
+  const handleLogin = (role?: 'admin' | 'user') => {
+    setLoginRole(role);
     setIsLoginModalOpen(true);
+  };
+
+  const normalizeIdentifier = (id: string) => {
+    let cleaned = id.replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('0') && cleaned.length === 11) {
+      cleaned = cleaned.substring(1);
+    }
+    return cleaned;
   };
 
   const handleCustomLogin = async (role: 'admin' | 'user', identifier: string) => {
     try {
       setLoading(true);
+      const normalizedId = normalizeIdentifier(identifier);
       
       // Look for existing user with this identifier
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('identifier', '==', identifier));
+      const q = query(usersRef, where('identifier', '==', normalizedId));
       const querySnapshot = await getDocs(q);
       
       let profile: any = null;
@@ -1190,8 +1200,8 @@ export default function App() {
           {isMobileMenuOpen && (
             <>
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 md:hidden" />
-              <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className={`fixed inset-y-0 right-0 w-[85%] max-w-sm z-[60] shadow-2xl overflow-y-auto ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
-                <div className="p-6">
+              <motion.div initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className={`fixed inset-y-0 right-0 w-[85%] max-w-sm z-[60] shadow-2xl flex flex-col ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}>
+                <div className="p-6 flex-1 overflow-y-auto no-scrollbar">
                   <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full border-2 border-[#D4AF37] p-0.5 overflow-hidden bg-white">
@@ -1205,19 +1215,34 @@ export default function App() {
                     <button onClick={() => setIsMobileMenuOpen(false)} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-800' : 'text-gray-400 hover:bg-gray-100'}`}><X size={24} /></button>
                   </div>
 
-                  <div className={`space-y-1 mb-6 border-b pb-6 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                  <div className={`space-y-1 mb-8 border-b pb-8 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                     {['হোম', 'বিস্তারিত', 'যোগাযোগ'].map((link, idx) => (
-                      <button key={idx} onClick={() => { scrollToSection(link === 'হোম' ? 'home' : link === 'বিস্তারিত' ? 'explore' : 'contact'); setIsMobileMenuOpen(false); }} className={`w-full text-left py-3 font-bold text-sm transition-colors ${isDarkMode ? 'text-gray-300 hover:text-white' : 'text-[#064E3B] hover:text-[#D4AF37]'}`}>{link}</button>
+                      <button 
+                        key={idx} 
+                        onClick={() => { scrollToSection(link === 'হোম' ? 'home' : link === 'বিস্তারিত' ? 'explore' : 'contact'); setIsMobileMenuOpen(false); }} 
+                        className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-base transition-all ${
+                          isDarkMode 
+                            ? 'text-gray-300 hover:bg-gray-800 hover:text-white' 
+                            : 'text-[#064E3B] hover:bg-emerald-50 hover:text-[#064E3B]'
+                        }`}
+                      >
+                        {link}
+                        <ChevronRight size={18} className="opacity-30" />
+                      </button>
                     ))}
                   </div>
 
                   {userProfile ? (
                     <div className="mb-6">
                       <div className="flex items-center gap-4 mb-4">
-                        <div className="w-14 h-14 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#064E3B] text-xl font-bold">{userProfile?.displayName?.charAt(0) || 'U'}</div>
-                        <div>
-                          <h4 className={`font-bold text-base ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{userProfile?.displayName || 'Shareholder'}</h4>
-                          <p className="text-xs text-gray-400 font-medium">{userProfile?.identifier || userProfile?.shareholderCode}</p>
+                        <div className="w-14 h-14 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#064E3B] text-xl font-bold shadow-inner">
+                          {userProfile?.displayName?.trim() ? userProfile.displayName.charAt(0) : 'U'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className={`font-bold text-base truncate ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                            {userProfile?.displayName?.trim() ? userProfile.displayName : 'সন্মানিত সদস্য'}
+                          </h4>
+                          <p className="text-xs text-gray-400 font-bold truncate">নাম্বার: {userProfile?.identifier?.length === 10 ? '0' + userProfile.identifier : userProfile.identifier}</p>
                         </div>
                       </div>
                       <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-bold text-red-500 hover:text-red-600 transition-colors"><LogOut size={18} /> লগআউট</button>
@@ -1265,7 +1290,40 @@ export default function App() {
         </AnimatePresence>
       </header>
 
-      <main className="pt-20">
+      {/* --- Mobile Bottom Navigation --- */}
+      <div className={`fixed bottom-0 left-0 right-0 z-40 md:hidden border-t px-6 py-3 flex justify-between items-center transition-colors duration-500 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]'}`}>
+        <button 
+          onClick={() => scrollToSection('home')}
+          className={`flex flex-col items-center gap-1 transition-colors ${isDarkMode ? 'text-gray-400 hover:text-[#D4AF37]' : 'text-gray-500 hover:text-[#064E3B]'}`}
+        >
+          <LayoutDashboard size={20} />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">হোম</span>
+        </button>
+        <button 
+          onClick={() => openModal('reports-search')}
+          className={`flex flex-col items-center gap-1 transition-colors ${isDarkMode ? 'text-gray-400 hover:text-[#D4AF37]' : 'text-gray-500 hover:text-[#064E3B]'}`}
+        >
+          <Search size={20} />
+          <span className="text-[10px] font-bold uppercase tracking-tighter">রিপোর্ট</span>
+        </button>
+        <button 
+          onClick={() => userProfile ? openModal('my-account') : handleLogin('user')}
+          className={`flex flex-col items-center gap-1 transition-colors ${!userProfile ? 'text-[#064E3B]' : isDarkMode ? 'text-gray-400 hover:text-[#D4AF37]' : 'text-gray-500 hover:text-[#064E3B]'}`}
+        >
+          {!userProfile ? (
+            <div className="w-10 h-10 bg-[#D4AF37] rounded-full flex items-center justify-center -mt-8 border-4 border-white shadow-lg text-[#064E3B]">
+              <LogIn size={20} />
+            </div>
+          ) : (
+            <User size={20} />
+          )}
+          <span className={`text-[10px] font-bold uppercase tracking-tighter ${!userProfile ? 'mt-1' : ''}`}>
+            {userProfile ? 'অ্যাকাউন্ট' : 'লগইন'}
+          </span>
+        </button>
+      </div>
+
+      <main className="pt-20 pb-20 md:pb-0">
         {/* Dynamic Notice Ticker */}
         <div className="w-full bg-[#D4AF37] overflow-hidden py-1.5 border-y border-[#064E3B]/10">
           <motion.div 
@@ -1284,18 +1342,45 @@ export default function App() {
           </motion.div>
         </div>
 
-        {/* Floating Action Buttons */}
-        <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2 sm:gap-3">
-          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://wa.me/8801880917816" target="_blank" rel="noopener noreferrer" className="p-2 sm:p-3.5 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors">
-            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-          </motion.a>
-          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.3, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="https://www.facebook.com/profile.php?id=61585517853683" target="_blank" rel="noopener noreferrer" className="p-2 sm:p-3.5 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors">
-            <Facebook className="w-5 h-5 sm:w-6 sm:h-6" />
-          </motion.a>
-          <motion.a animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.6, ease: "easeInOut" }} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} href="tel:+8801880917816" className="p-2 sm:p-3.5 bg-[#064E3B] text-white rounded-full shadow-lg hover:bg-[#064E3B]/90 transition-colors">
-            <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
-          </motion.a>
-        </div>
+        {/* Floating Action Buttons - Hidden when mobile menu is open and moved higher on mobile to avoid nav overlap */}
+        {!isMobileMenuOpen && (
+          <div className="fixed bottom-24 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col gap-2 sm:gap-3 md:bottom-24 lg:bottom-6">
+            <motion.a 
+              animate={{ y: [0, -5, 0] }} 
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }} 
+              whileHover={{ scale: 1.1 }} 
+              whileTap={{ scale: 0.9 }} 
+              href="https://wa.me/8801880917816" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="p-2 sm:p-3.5 bg-green-500 text-white rounded-full shadow-lg hover:bg-green-600 transition-colors"
+            >
+              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+            </motion.a>
+            <motion.a 
+              animate={{ y: [0, -5, 0] }} 
+              transition={{ repeat: Infinity, duration: 3, delay: 0.3, ease: "easeInOut" }} 
+              whileHover={{ scale: 1.1 }} 
+              whileTap={{ scale: 0.9 }} 
+              href="https://www.facebook.com/profile.php?id=61585517853683" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="p-2 sm:p-3.5 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+            >
+              <Facebook className="w-5 h-5 sm:w-6 sm:h-6" />
+            </motion.a>
+            <motion.a 
+              animate={{ y: [0, -5, 0] }} 
+              transition={{ repeat: Infinity, duration: 3, delay: 0.6, ease: "easeInOut" }} 
+              whileHover={{ scale: 1.1 }} 
+              whileTap={{ scale: 0.9 }} 
+              href="tel:+8801880917816" 
+              className="p-2 sm:p-3.5 bg-[#064E3B] text-white rounded-full shadow-lg hover:bg-[#064E3B]/90 transition-colors"
+            >
+              <Phone className="w-5 h-5 sm:w-6 sm:h-6" />
+            </motion.a>
+          </div>
+        )}
 
         <section id="home" className="relative bg-[#064E3B] text-white py-24 md:py-32 overflow-hidden">
           <div className="absolute inset-0 opacity-10 z-0 pointer-events-none">
@@ -1541,9 +1626,9 @@ export default function App() {
 
       <AnimatePresence>
         {activeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeModal} className="absolute inset-0 bg-[#064E3B]/80 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeModal} className="absolute inset-0 bg-[#064E3B]/90 backdrop-blur-md" />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="relative w-full h-full sm:h-auto sm:max-w-3xl sm:max-h-[90vh] bg-white sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden">
               {activeModal === 'admin-settings' ? (
                 <>
                   <div className="flex items-center justify-between p-6 bg-[#064E3B] text-white shrink-0">
@@ -1584,7 +1669,7 @@ export default function App() {
                     <button onClick={() => { setAdminTab('messages'); setIsEditing(null); fetchMessages(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'messages' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                       <Mail size={16} /> মেসেজ
                     </button>
-                    <button onClick={() => { setAdminTab('tasks'); setIsEditing(null); fetchTasks(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'tasks' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                    <button onClick={() => { setAdminTab('tasks'); setIsEditing(null); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'tasks' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                       <Activity size={16} /> টাস্ক
                     </button>
                   </div>
@@ -2222,6 +2307,83 @@ export default function App() {
                           </div>
                         )}
                       </div>
+                    ) : adminTab === 'tasks' ? (
+                      <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                          <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-4">নতুন টাস্ক তৈরি করুন</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">টাস্কের শিরোনাম</label>
+                              <input type="text" value={taskForm.title} onChange={(e) => setTaskForm({...taskForm, title: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="টাস্কের নাম" />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">দায়িত্বপ্রাপ্ত (ইউজার সিলেক্ট করুন)</label>
+                              <select 
+                                value={taskForm.assigneeId} 
+                                onChange={(e) => {
+                                  const selectedUser = usersList.find(u => u.id === e.target.value);
+                                  setTaskForm({ ...taskForm, assigneeId: e.target.value, assigneeName: selectedUser?.displayName || '' });
+                                }}
+                                className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold cursor-pointer"
+                              >
+                                <option value="">নির্বাচন করুন</option>
+                                {usersList.filter(u => u.role !== 'shareholder').map(u => (
+                                  <option key={u.id} value={u.id}>{u.displayName} ({u.role})</option>
+                                ))}
+                                {usersList.filter(u => u.role === 'shareholder').length > 0 && (
+                                  <optgroup label="সদস্যরা">
+                                    {usersList.filter(u => u.role === 'shareholder').map(u => (
+                                      <option key={u.id} value={u.id}>{u.displayName}</option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </select>
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">টাস্কের বিস্তারিত</label>
+                              <textarea value={taskForm.description} onChange={(e) => setTaskForm({...taskForm, description: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-medium h-24 resize-none" placeholder="টাস্কের বিবরণ..."></textarea>
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">শেষ সময় (Due Date)</label>
+                              <input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm({...taskForm, dueDate: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                            </div>
+                          </div>
+                          <button onClick={addTask} className="mt-6 w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg shadow-[#064E3B]/20 hover:bg-[#064E3B]/90 transition-all">টাস্ক অ্যাড করুন</button>
+                        </div>
+
+                        <div className="space-y-4">
+                          <h3 className="font-serif font-bold text-lg text-[#064E3B]">চলমান টাস্কসমূহ</h3>
+                          {tasks.length === 0 && <p className="text-center py-10 bg-white rounded-3xl border-2 border-dashed border-gray-100 text-gray-400 text-sm italic">কোন টাস্ক নেই</p>}
+                          {tasks.map(t => (
+                            <div key={t.id} className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <h4 className="font-bold text-[#064E3B]">{t.title}</h4>
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Assignee: {t.assigneeName}</p>
+                                </div>
+                                <select 
+                                  value={t.status} 
+                                  onChange={(e) => updateTaskStatus(t.id!, e.target.value as any)}
+                                  className={`text-[9px] font-bold px-3 py-1.5 rounded-full border-none outline-none cursor-pointer transition-all ${
+                                    t.status === 'Completed' ? 'bg-green-100 text-green-700' : 
+                                    t.status === 'In Progress' ? 'bg-blue-100 text-blue-700' : 
+                                    'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
+                                  <option value="To Do">To Do</option>
+                                  <option value="In Progress">In Progress</option>
+                                  <option value="Completed">Completed</option>
+                                </select>
+                              </div>
+                              <p className="text-xs text-gray-600 mb-4">{t.description}</p>
+                              <div className="flex justify-between items-center text-[9px] text-gray-400 font-bold uppercase">
+                                <span className={new Date(t.dueDate) < new Date() && t.status !== 'Completed' ? 'text-red-500' : ''}>Deadline: {t.dueDate}</span>
+                                <span>Created: {new Date(t.createdAt).toLocaleDateString()}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     ) : null}
                   </div>
                   <div className="p-4 md:p-6 border-t bg-white flex justify-end shrink-0"><button onClick={closeModal} className="px-10 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-colors shadow-sm">বন্ধ করুন</button></div>
@@ -2245,31 +2407,40 @@ export default function App() {
                   </div>
                 </div>
               ) : activeModal === 'my-account' ? (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
-                    <div>
-                      <h2 className="font-serif text-2xl font-bold text-[#064E3B]">আমার ড্যাশবোর্ড</h2>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Personal reports & account details</p>
+                <div className="p-6 md:p-8">
+                  <div className="flex justify-between items-center mb-8 bg-emerald-50 -m-6 md:-m-8 p-6 md:p-8 border-b border-emerald-100 rounded-t-[2rem] md:rounded-t-[3rem]">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-3xl bg-[#064E3B] text-white flex items-center justify-center text-3xl font-serif">
+                        {userProfile?.displayName?.charAt(0) || 'U'}
+                      </div>
+                      <div>
+                        <h2 className="font-serif text-2xl font-bold text-[#064E3B]">স্বাগতম, {userProfile?.displayName?.split(' ').slice(0, 2).join(' ')}</h2>
+                        <p className="text-[10px] text-emerald-700 font-bold uppercase tracking-widest mt-1">আপনার ব্যক্তিগত ড্যাশবোর্ড</p>
+                      </div>
                     </div>
-                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+                    <button onClick={closeModal} className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm border border-gray-100 transition-all"><X size={24} /></button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10 mt-10 md:mt-8">
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-emerald-50 shadow-sm hover:shadow-md transition-all group">
+                       <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all"><User size={18} /></div>
                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">প্রোফাইল তথ্য</p>
-                       <h3 className="text-xl font-bold text-[#064E3B]">{userProfile?.displayName}</h3>
-                       <p className="text-xs text-gray-500 font-medium">কোড: {userProfile?.shareholderCode}</p>
-                       <p className="text-xs text-gray-500 font-medium">মোবাইল: {userProfile?.identifier}</p>
+                       <h3 className="text-xl font-bold text-[#064E3B] truncate">{userProfile?.displayName}</h3>
+                       <p className="text-[10px] text-gray-400 font-bold mt-1">ID: {userProfile?.shareholderCode}</p>
                     </div>
-                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner flex flex-col justify-center">
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">আপনার কোড</p>
-                       <h3 className="text-2xl font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'নির্ধারিত হয়নি'}</h3>
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-amber-50 shadow-sm hover:shadow-md transition-all group">
+                       <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 group-hover:bg-amber-600 group-hover:text-white transition-all"><Database size={18} /></div>
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">অ্যাকাউন্ট কোড</p>
+                       <h3 className="text-2xl font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'TBC'}</h3>
+                       <p className="text-[10px] text-gray-400 font-bold mt-1">ব্যবসায়িক আইডি</p>
                     </div>
-                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">মোট জমা (৳)</p>
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-emerald-50 shadow-sm hover:shadow-md transition-all group">
+                       <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 group-hover:bg-emerald-600 group-hover:text-white transition-all"><Activity size={18} /></div>
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">মোট সঞ্চয়</p>
                        <h3 className="text-3xl font-serif font-bold text-emerald-600">
                           ৳ {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0).toLocaleString('bn-BD')}
                        </h3>
+                       <p className="text-[10px] text-gray-400 font-bold mt-1">সর্বশেষ আপডেট আজ</p>
                     </div>
                   </div>
 
@@ -2381,7 +2552,9 @@ export default function App() {
                       {searchResult.length > 0 ? searchResult.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((r: any) => (
                         <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center">
                           <div>
-                            <p className="font-bold text-[#064E3B] text-lg">{r.month}</p>
+                            <p className="font-bold text-[#064E3B] text-lg">
+                              {r.month === "প্রারম্ভিক ব্যালেন্ন" ? "প্রারম্ভিক ব্যালেন্স" : r.month}
+                            </p>
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
                           </div>
                           <div className="text-right">
@@ -2445,7 +2618,11 @@ export default function App() {
       </AnimatePresence>
 
       {isLoginModalOpen && (
-        <LoginModal onClose={() => setIsLoginModalOpen(false)} onLogin={handleCustomLogin} />
+        <LoginModal 
+          onClose={() => setIsLoginModalOpen(false)} 
+          onLogin={handleCustomLogin} 
+          defaultRole={loginRole}
+        />
       )}
 
       {/* Toast Notification */}
