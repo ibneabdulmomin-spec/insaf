@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX, Download } from 'lucide-react';
 import { LoginModal } from './components/LoginModal';
 import { Footer } from './components/Footer';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where } from 'firebase/firestore';
@@ -100,24 +102,19 @@ export default function App() {
     setTimeout(() => setToast(null), 3000);
   };
   
-  // Onboarding
-  const [username, setUsername] = useState<string>('');
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  // Welcome Modal
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   useEffect(() => {
-    const savedUsername = localStorage.getItem('insaf_username');
-    if (!savedUsername) {
-      setShowOnboarding(true);
-    } else {
-      setUsername(savedUsername);
+    const hasSeenWelcome = sessionStorage.getItem('insaf_welcome_seen');
+    if (!hasSeenWelcome) {
+      const timer = setTimeout(() => {
+        setShowWelcomeModal(true);
+        sessionStorage.setItem('insaf_welcome_seen', 'true');
+      }, 2500); // 2.5 seconds
+      return () => clearTimeout(timer);
     }
   }, []);
-
-  const saveUsername = (name: string) => {
-    localStorage.setItem('insaf_username', name);
-    setUsername(name);
-    setShowOnboarding(false);
-  };
   useEffect(() => {
     const contentDocRef = doc(db, 'settings', 'site_content');
     const unsubscribe = onSnapshot(contentDocRef, (docSnap) => {
@@ -845,6 +842,32 @@ export default function App() {
     }
   };
 
+  const handleExportPDF = async (elementId: string, filename: string) => {
+    const input = document.getElementById(elementId);
+    if (!input) {
+      showToast("রিপোর্ট খুঁজে পাওয়া যাচ্ছে না", "error");
+      return;
+    }
+    try {
+      const canvas = await html2canvas(input, { 
+        scale: 2, 
+        useCORS: true,
+        backgroundColor: "#ffffff"
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${filename}.pdf`);
+      showToast("পিডিএফ ডাউনলোড শুরু হয়েছে", "success");
+    } catch (err) {
+      console.error("PDF Export Error:", err);
+      showToast("পিডিএফ ডাউনলোড করতে সমস্যা হয়েছে", "error");
+    }
+  };
+
   const handleLogout = async () => {
     try {
       setUserProfile(null);
@@ -984,7 +1007,7 @@ export default function App() {
                 </div>
               </div>
               <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">
-                {username ? `আসসালামু আলাইকুম, ${username}!` : "আল-ইনসাফ এ আপনাকে স্বাগতম"}
+                {userProfile ? `আসসালামু আলাইকুম, ${userProfile.displayName || 'আপনার'}!` : "আল-ইনসাফ এ আপনাকে স্বাগতম"}
               </span>
               <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6">নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span></h1>
               <p className="text-lg text-gray-200 max-w-2xl mx-auto mb-10 font-light leading-relaxed">স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ।</p>
@@ -1817,8 +1840,8 @@ export default function App() {
                   </div>
                 </div>
               ) : activeModal === 'my-account' ? (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
+                <div className="p-8 flex flex-col h-full">
+                  <div className="flex justify-between items-center mb-6">
                     <div>
                       <h2 className="font-serif text-2xl font-bold text-[#064E3B]">আমার ড্যাশবোর্ড</h2>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Personal reports & account details</p>
@@ -1826,52 +1849,60 @@ export default function App() {
                     <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">আপনার কোড</p>
-                       <h3 className="text-2xl font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'নির্ধারিত হয়নি'}</h3>
-                    </div>
-                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">মোট জমা (৳)</p>
-                       <h3 className="text-2xl font-serif font-bold text-emerald-600">
-                          {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0)}
-                       </h3>
+                  <div id="my-account-pdf-content" className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4">
+                    <div className="bg-white">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                        <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
+                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">আপনার কোড</p>
+                           <h3 className="text-2xl font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'নির্ধারিত হয়নি'}</h3>
+                        </div>
+                        <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
+                           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">মোট জমা (৳)</p>
+                           <h3 className="text-2xl font-serif font-bold text-emerald-600">
+                              {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0)}
+                           </h3>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <h4 className="font-bold text-[#064E3B] text-sm flex items-center gap-2">
+                           <Activity size={16} className="text-[#D4AF37]" /> সাম্প্রতিক পেমেন্ট হিস্ট্রি
+                        </h4>
+                        <div className="space-y-3">
+                           {personalReports.length === 0 && (
+                             <div className="text-center py-10 bg-gray-50 rounded-[2.5rem] border border-dashed border-gray-200">
+                               <FileX size={40} className="mx-auto text-gray-200 mb-2" />
+                               <p className="text-gray-400 italic">এখনও কোন রিপোর্ট পাওয়া যায়নি</p>
+                             </div>
+                           )}
+                           {personalReports.map((r: any) => (
+                             <div key={r.id} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex justify-between items-center group">
+                               <div>
+                                 <p className="font-bold text-[#064E3B]">{r.month}</p>
+                                 <p className="text-[9px] text-gray-400 font-bold uppercase">{new Date(r.timestamp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-lg font-bold text-emerald-600">৳{r.amount}</p>
+                                 {r.premiumAmount > 0 && <p className="text-[8px] text-amber-600 font-bold uppercase tracking-tight">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
+                               </div>
+                             </div>
+                           ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-[#064E3B] text-sm flex items-center gap-2">
-                       <Activity size={16} className="text-[#D4AF37]" /> সাম্প্রতিক পেমেন্ট হিস্ট্রি
-                    </h4>
-                    <div className="space-y-3 max-h-[40vh] overflow-y-auto no-scrollbar pr-1">
-                       {personalReports.length === 0 && (
-                         <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border border-dashed border-gray-200">
-                           <FileX size={40} className="mx-auto text-gray-200 mb-2" />
-                           <p className="text-gray-400 italic">এখনও কোন রিপোর্ট পাওয়া যায়নি</p>
-                         </div>
-                       )}
-                       {personalReports.map((r: any) => (
-                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={r.id} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex justify-between items-center group hover:border-[#D4AF37]/30 transition-all">
-                           <div>
-                             <p className="font-bold text-[#064E3B]">{r.month}</p>
-                             <p className="text-[9px] text-gray-400 font-bold uppercase">{new Date(r.timestamp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                           </div>
-                           <div className="text-right">
-                             <p className="text-lg font-bold text-emerald-600">৳{r.amount}</p>
-                             {r.premiumAmount > 0 && <p className="text-[8px] text-amber-600 font-bold uppercase tracking-tight">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
-                           </div>
-                         </motion.div>
-                       ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-8 pt-6 border-t flex justify-end">
+                  <div className="pt-4 border-t flex justify-between items-center shrink-0">
+                    <button onClick={() => handleExportPDF('my-account-pdf-content', `report_${userProfile?.shareholderCode || 'user'}`)} className="px-6 py-2.5 bg-emerald-50 text-[#064E3B] font-bold rounded-2xl shadow-sm border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center gap-2">
+                      <Download size={18} />
+                      PDF ডাউনলোড
+                    </button>
                     <button onClick={closeModal} className="px-10 py-2.5 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg border border-[#064E3B]/20 hover:bg-black transition-all">বন্ধ করুন</button>
                   </div>
                 </div>
               ) : activeModal === 'reports-search' ? (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
+                <div className="p-8 flex flex-col h-full">
+                  <div className="flex justify-between items-center mb-6">
                     <div>
                       <h2 className="font-serif text-2xl font-bold text-[#064E3B]">রিপোর্ট সার্চ</h2>
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Search payments by code</p>
@@ -1879,7 +1910,7 @@ export default function App() {
                     <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
                   </div>
                   
-                  <div className="flex gap-3 mb-8">
+                  <div className="flex gap-3 mb-6 shrink-0">
                     <input 
                       type="text" 
                       value={reportSearchCode} 
@@ -1891,36 +1922,59 @@ export default function App() {
                     <button onClick={searchReport} className="px-6 bg-[#D4AF37] text-[#064E3B] font-bold rounded-2xl hover:bg-[#D4AF37]/90 transition-all shadow-lg active:scale-95"><Search size={20} /></button>
                   </div>
 
-                  {isFetchingReports ? (
-                    <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
-                  ) : (
-                    <div className="space-y-4 max-h-[40vh] overflow-y-auto no-scrollbar pb-4">
-                      {searchResult.length > 0 ? searchResult.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((r: any) => (
-                        <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center">
-                          <div>
-                            <p className="font-bold text-[#064E3B] text-lg">{r.month}</p>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
+                  <div id="search-report-pdf-content" className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4 bg-white">
+                    {isFetchingReports ? (
+                      <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
+                    ) : (
+                      <div className="space-y-4 pb-4">
+                        {searchResult.length > 0 ? (
+                          <>
+                            <div className="bg-gray-50 p-4 rounded-xl mb-4 border border-gray-100 flex justify-between items-center">
+                              <div>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">শেয়ারহোল্ডার কোড</p>
+                                <h3 className="text-xl font-bold text-[#064E3B]">{reportSearchCode.toUpperCase()}</h3>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">মোট জমা</p>
+                                <h3 className="text-xl font-bold text-emerald-600">৳{searchResult.reduce((sum, r) => sum + (r.amount || 0), 0)}</h3>
+                              </div>
+                            </div>
+                            {searchResult.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((r: any) => (
+                              <div key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center">
+                                <div>
+                                  <p className="font-bold text-[#064E3B] text-lg">{r.month}</p>
+                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-2xl font-serif font-bold text-emerald-600">৳{r.amount}</p>
+                                  {r.premiumAmount > 0 && <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
+                                </div>
+                              </div>
+                            ))}
+                          </>
+                        ) : reportSearchCode && !isFetchingReports ? (
+                          <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200">
+                             <FileX size={48} className="mx-auto text-gray-300 mb-4" />
+                             <p className="text-gray-400 font-serif italic">কোন তথ্য পাওয়া যায়নি</p>
                           </div>
-                          <div className="text-right">
-                             <p className="text-2xl font-serif font-bold text-emerald-600">৳{r.amount}</p>
-                             {r.premiumAmount > 0 && <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
+                        ) : (
+                          <div className="text-center py-20 opacity-30">
+                             <Search size={48} className="mx-auto text-gray-300 mb-4" />
+                             <p className="text-gray-400">আপনার কোড লিখে সার্চ করুন</p>
                           </div>
-                        </motion.div>
-                      )) : reportSearchCode && !isFetchingReports ? (
-                        <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200">
-                           <FileX size={48} className="mx-auto text-gray-300 mb-4" />
-                           <p className="text-gray-400 font-serif italic">কোন তথ্য পাওয়া যায়নি</p>
-                        </div>
-                      ) : (
-                        <div className="text-center py-20 opacity-30">
-                           <Search size={48} className="mx-auto text-gray-300 mb-4" />
-                           <p className="text-gray-400">আপনার কোড লিখে সার্চ করুন</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="mt-6 pt-6 border-t flex justify-end">
-                    <button onClick={closeModal} className="px-8 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-2xl">বন্ধ করুন</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-4 border-t flex justify-between items-center shrink-0">
+                    {searchResult.length > 0 ? (
+                      <button onClick={() => handleExportPDF('search-report-pdf-content', `report_${reportSearchCode}`)} className="px-6 py-2.5 bg-emerald-50 text-[#064E3B] font-bold rounded-2xl shadow-sm border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center gap-2">
+                        <Download size={18} />
+                        PDF ডাউনলোড
+                      </button>
+                    ) : <div />}
+                    <button onClick={closeModal} className="px-8 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all">বন্ধ করুন</button>
                   </div>
                 </div>
               ) : activeModal === 'members-directory' ? (
@@ -1961,12 +2015,37 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {showOnboarding && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl">
-            <h2 className="text-2xl font-bold text-[#064E3B] mb-6">আপনার নাম কি?</h2>
-            <input type="text" onChange={(e) => setUsername(e.target.value)} placeholder="নাম লিখুন" className="w-full p-4 mb-6 bg-gray-50 rounded-xl outline-none" />
-            <button onClick={() => saveUsername(username)} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl">সেভ করুন</button>
+      {showWelcomeModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-[#064E3B]/60 backdrop-blur-sm" onClick={() => setShowWelcomeModal(false)} />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8, y: 50 }} 
+            animate={{ opacity: 1, scale: 1, y: 0 }} 
+            exit={{ opacity: 0, scale: 0.8, y: 50 }} 
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="relative bg-white p-8 md:p-10 rounded-3xl max-w-sm w-full shadow-2xl flex flex-col items-center text-center overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#064E3B]/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
+            
+            <div className="w-20 h-20 bg-[#FDFCF0] rounded-full flex items-center justify-center border-4 border-[#D4AF37]/20 mb-6 relative">
+              <span className="absolute inset-0 w-full h-full border-4 border-[#D4AF37]/40 rounded-full animate-ping opacity-20"></span>
+              <img src={logo} alt="Logo" className="w-12 h-12 object-contain scale-110" referrerPolicy="no-referrer" />
+            </div>
+            
+            <h2 className="text-2xl md:text-3xl font-serif font-extrabold text-[#064E3B] mb-4 leading-tight">
+              আসসালামু আলাইকুম
+              <br/>
+              <span className="text-[#D4AF37]">আপনাকে অভিনন্দন</span>
+            </h2>
+            <p className="text-gray-600 font-medium mb-8 text-sm">ইনসাফ পরিবারে আপনাকে স্বাগতম। আমাদের সাথে যুক্ত থাকার জন্য ধন্যবাদ।</p>
+            
+            <button 
+              onClick={() => setShowWelcomeModal(false)} 
+              className="w-full py-4 bg-[#064E3B] hover:bg-[#064E3B]/90 transition-colors text-white font-bold rounded-2xl shadow-[0_8px_30px_rgb(6,78,59,0.2)]"
+            >
+              ধন্যবাদ
+            </button>
           </motion.div>
         </div>
       )}
