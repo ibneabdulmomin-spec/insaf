@@ -21,15 +21,15 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if true;
+      allow read: if isSignedIn() && request.auth.uid == userId;
       allow create: if isSignedIn() && request.auth.uid == userId && (
         request.resource.data.role == 'shareholder' ||
-        request.resource.data.identifier == '992244'
+        request.resource.data.identifier == '01609434924'
       );
       allow update: if isSignedIn() && (
         (request.auth.uid == userId && (
           request.resource.data.role == resource.data.role ||
-          request.resource.data.identifier == '992244'
+          request.resource.data.identifier == '01609434924'
         )) || 
         isAdmin()
       );

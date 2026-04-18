@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where } from 'firebase/firestore';
 
 enum OperationType {
@@ -1018,7 +1018,7 @@ export default function App() {
           await signInAnonymously(auth);
         } catch (authErr: any) {
           if (authErr.code === 'auth/admin-restricted-operation') {
-             console.warn("Anonymous auth restricted. Continuing as guest.");
+             console.warn("Anonymous auth restricted. Continuing without sign-in.");
           } else {
              throw authErr;
           }
@@ -1075,21 +1075,6 @@ export default function App() {
     } catch (err: any) {
       console.error("Login Error:", err);
       showToast("লগইন ব্যর্থ হয়েছে", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      setIsLoginModalOpen(false);
-      showToast("গুগল লগইন সফল হয়েছে!", "success");
-    } catch (err: any) {
-      console.error("Google Login Error:", err);
-      showToast("গুগল লগইন ব্যর্থ হয়েছে", "error");
     } finally {
       setLoading(false);
     }
@@ -2682,7 +2667,6 @@ export default function App() {
         <LoginModal 
           onClose={() => setIsLoginModalOpen(false)} 
           onLogin={handleCustomLogin} 
-          onGoogleLogin={handleGoogleLogin}
           defaultRole={loginRole}
         />
       )}
