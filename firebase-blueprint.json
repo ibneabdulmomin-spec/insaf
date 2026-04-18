@@ -49,6 +49,22 @@
         "date": { "type": "string" }
       },
       "required": ["url"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Tasks for admins and employees",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "assigneeId": { "type": "string" },
+        "assigneeName": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["To Do", "In Progress", "Completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "creatorId": { "type": "string" }
+      },
+      "required": ["title", "assigneeId", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -67,6 +83,10 @@
     "/gallery/{itemId}": {
       "schema": "GalleryItem",
       "description": "Activity images"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Admin and employee tasks"
     }
   }
 }

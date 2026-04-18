@@ -50,5 +50,9 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read, write: if true;
     }
+
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
   }
 }

@@ -61,6 +61,18 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 const logo = "https://i.postimg.cc/7LLRy4WW/Whats-App-Image-2026-03-16-at-7-29-35-PM.jpg";
 
+interface Task {
+  id?: string;
+  title: string;
+  description: string;
+  assigneeId: string;
+  assigneeName: string;
+  dueDate: string;
+  status: 'To Do' | 'In Progress' | 'Completed';
+  createdAt: string;
+  creatorId: string;
+}
+
 // --- Main Component ---
 export default function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -76,21 +88,111 @@ export default function App() {
   const [editData, setEditData] = useState<any>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'analytics' | 'settings' | 'users' | 'reports' | 'notices' | 'gallery' | 'messages'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'analytics' | 'settings' | 'users' | 'reports' | 'notices' | 'gallery' | 'messages' | 'tasks'>('overview');
   const [notices, setNotices] = useState<any[]>([]);
   const [galleryItems, setGalleryItems] = useState<any[]>([]);
   const [reportsList, setReportsList] = useState<any[]>([]);
+  const [reportSearchCode, setReportSearchCode] = useState("");
   const [personalReports, setPersonalReports] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isFetchingReports, setIsFetchingReports] = useState(false);
   const [isFetchingNotices, setIsFetchingNotices] = useState(false);
   const [isFetchingGallery, setIsFetchingGallery] = useState(false);
   const [isFetchingMessages, setIsFetchingMessages] = useState(false);
+  const [isFetchingTasks, setIsFetchingTasks] = useState(false);
   const [reportForm, setReportForm] = useState({ shareholderCode: '', month: '', amount: 0, premiumAmount: 0 });
   const [noticeForm, setNoticeForm] = useState({ title: '', content: '' });
+  const [taskForm, setTaskForm] = useState<Omit<Task, 'id' | 'createdAt' | 'creatorId'>>({
+    title: '',
+    description: '',
+    assigneeId: '',
+    assigneeName: '',
+    dueDate: '',
+    status: 'To Do'
+  });
   const [galleryForm, setGalleryForm] = useState({ url: '', caption: '', date: '' });
   const [contactForm, setContactForm] = useState({ name: '', number: '', message: '' });
-  const [reportSearchCode, setReportSearchCode] = useState('');
+  const [myTasks, setMyTasks] = useState<Task[]>([]);
+  const [isFetchingMyTasks, setIsFetchingMyTasks] = useState(false);
+
+  const fetchMyTasks = async (uid: string) => {
+    setIsFetchingMyTasks(true);
+    try {
+      const q = query(collection(db, 'tasks'), where('assigneeId', '==', uid));
+      const unsub = onSnapshot(q, (snap) => {
+        setMyTasks(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Task)));
+        setIsFetchingMyTasks(false);
+      });
+      return unsub;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'my-tasks');
+      setIsFetchingMyTasks(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && activeModal === 'my-account') {
+      fetchMyTasks(user.uid);
+    }
+  }, [user, activeModal]);
+
+  const syncOfficialData = async () => {
+    try {
+      const officialMembers = [
+        { code: "1001", name: "মাওঃ সালমান", mobile: "1851992430", total: 24427 },
+        { code: "1002", name: "মুহা. লোকমান", mobile: "1887090637", total: 42138 },
+        { code: "1003", name: "মাওঃ ইমরান", mobile: "1306070340", total: 29436 },
+        { code: "1004", name: "মুহা. নোমান", mobile: "1818685296", total: 15888 },
+        { code: "1005", name: "ফারিহা আক্তার মীম", mobile: "1886296261", total: 18766 },
+        { code: "1006", name: "ফাহমিদা হোমায়রা", mobile: "1830854739", total: 15724 },
+        { code: "1007", name: "নাইমা আক্তার", mobile: "1840491824", total: 6246 },
+        { code: "1008", name: "নুসাইবা", mobile: "1840491825", total: 14589 },
+        { code: "1009", name: "ওমর ফারুক", mobile: "1849458345", total: 16742 },
+        { code: "1010", name: "হুসাইন", mobile: "1612442395", total: 2410 },
+        { code: "1011", name: "মোবারক করিম", mobile: "1980433529", total: 11629 },
+        { code: "1012", name: "হাঃ আকরাম", mobile: "1745453847", total: 4472 },
+        { code: "1013", name: "আহনাফ আবরার", mobile: "1818422650", total: 8448 },
+        { code: "1014", name: "মুস্তাফিজুর রহমান ফিজার", mobile: "1644234822", total: 15504 },
+        { code: "1015", name: "উসমান গণী", mobile: "1822605746", total: 11135 },
+        { code: "1016", name: "রাসেল প্রবাসী", mobile: "1834674421", total: 26894 },
+        { code: "1017", name: "আঃ করিম বিন আঃ রহমান", mobile: "1890754244", total: 520 },
+        { code: "1018", name: "নাজমুল মাসনবী যশোর", mobile: "1797765502", total: 7588 },
+        { code: "1019", name: "রফিকুল্লাহ হাতিয়া", mobile: "1606260501", total: 8716 },
+        { code: "1020", name: "নূর আলম", mobile: "1645141199", total: 5663 }
+      ];
+
+      for (const m of officialMembers) {
+        const uid = "user_" + m.code;
+        // Update user profile
+        await setDoc(doc(db, 'users', uid), {
+          uid,
+          identifier: m.mobile,
+          displayName: m.name,
+          shareholderCode: m.code,
+          role: 'shareholder',
+          disabled: false,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        // Add standard report entry if it doesn't exist for this total
+        const reportQuery = query(collection(db, 'reports'), where('shareholderCode', '==' , m.code), where('amount', '==', m.total));
+        const existing = await getDocs(reportQuery);
+        if (existing.empty) {
+          await setDoc(doc(collection(db, 'reports')), {
+            shareholderCode: m.code,
+            month: "প্রারম্ভিক ব্যালেন্স",
+            amount: m.total,
+            premiumAmount: 0,
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+      showToast("অফিসিয়াল ডাটা সিঙ্ক সফল হয়েছে!", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'bulk-sync');
+    }
+  };
   const [searchResult, setSearchResult] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
@@ -98,25 +200,8 @@ export default function App() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
-  
-  // Onboarding
-  const [username, setUsername] = useState<string>('');
-  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  useEffect(() => {
-    const savedUsername = localStorage.getItem('insaf_username');
-    if (!savedUsername) {
-      setShowOnboarding(true);
-    } else {
-      setUsername(savedUsername);
-    }
-  }, []);
-
-  const saveUsername = (name: string) => {
-    localStorage.setItem('insaf_username', name);
-    setUsername(name);
-    setShowOnboarding(false);
-  };
+  // Firestore Site Content Listener
   useEffect(() => {
     const contentDocRef = doc(db, 'settings', 'site_content');
     const unsubscribe = onSnapshot(contentDocRef, (docSnap) => {
@@ -185,6 +270,56 @@ export default function App() {
   // Initialize base data if empty
   useEffect(() => {
     const initData = async () => {
+      // Users & Reports seeding
+      const usersSnap = await getDocs(collection(db, 'users'));
+      if (usersSnap.empty) {
+        const initialShareholders = [
+          { code: "1001", name: "মাওঃ সালমান", mobile: "1851992430", payments: [{ month: "অক্টোবর ২০২৪", amount: 24427 }] },
+          { code: "1002", name: "মুহা. লোকমান", mobile: "1887090637", payments: [{ month: "মার্চ ২০২৪", amount: 42138 }] },
+          { code: "1003", name: "মাওঃ ইমরান", mobile: "1306070340", payments: [{ month: "এপ্রিল ২০২৪", amount: 29436 }] },
+          { code: "1004", name: "মুহা. নোমান", mobile: "1818685296", payments: [{ month: "অক্টোবর ২০২৪", amount: 15888 }] },
+          { code: "1005", name: "ফারিহা আক্তার মীম", mobile: "1886296261", payments: [{ month: "জুন ২০২৪", amount: 18766 }] },
+          { code: "1006", name: "ফাহমিদা হোমায়রা", mobile: "1830854739", payments: [{ month: "এপ্রিল ২০২৪", amount: 15724 }] },
+          { code: "1007", name: "নাইমা আক্তার", mobile: "1840491824", payments: [{ month: "এপ্রিল ২০২৪", amount: 6246 }] },
+          { code: "1008", name: "নুসাইবা", mobile: "1840491825", payments: [{ month: "এপ্রিল ২০২৪", amount: 14589 }] },
+          { code: "1009", name: "ওমর ফারুক", mobile: "1849458345", payments: [{ month: "এপ্রিল ২০২৪", amount: 16742 }] },
+          { code: "1010", name: "হুসাইন", mobile: "1612442395", payments: [{ month: "এপ্রিল ২০২৪", amount: 2410 }] },
+          { code: "1011", name: "মোবারক করিম", mobile: "1980433529", payments: [{ month: "এপ্রিল ২০২৪", amount: 11629 }] },
+          { code: "1012", name: "হাঃ আকরাম", mobile: "1745453847", payments: [{ month: "এপ্রিল ২০২৪", amount: 4472 }] },
+          { code: "1013", name: "আহনাফ আবরার", mobile: "1818422650", payments: [{ month: "এপ্রিল ২০২৪", amount: 8448 }] },
+          { code: "1014", name: "মুস্তাফিজুর রহমান ফিজার", mobile: "1644234822", payments: [{ month: "এপ্রিল ২০২৪", amount: 15504 }] },
+          { code: "1015", name: "উসমান গণী", mobile: "1822605746", payments: [{ month: "এপ্রিল ২০২৪", amount: 11135 }] },
+          { code: "1016", name: "রাসেল প্রবাসী", mobile: "1834674421", payments: [{ month: "এপ্রিল ২০২৪", amount: 26894 }] },
+          { code: "1017", name: "আঃ করিম বিন আঃ রহমান", mobile: "1890754244", payments: [{ month: "এপ্রিল ২০২৪", amount: 520 }] },
+          { code: "1018", name: "নাজমুল মাসনবী যশোর", mobile: "1797765502", payments: [{ month: "এপ্রিল ২০২৪", amount: 7588 }] },
+          { code: "1019", name: "রফিকুল্লাহ হাতিয়া", mobile: "1606260501", payments: [{ month: "এপ্রিল ২০২৪", amount: 8716 }] },
+          { code: "1020", name: "নূর আলম", mobile: "1645141199", payments: [{ month: "এপ্রিল ২০২৪", amount: 5663 }] }
+        ];
+
+        for (const s of initialShareholders) {
+          const uid = "user_" + s.code;
+          await setDoc(doc(db, 'users', uid), {
+            uid,
+            identifier: s.mobile,
+            displayName: s.name,
+            shareholderCode: s.code,
+            role: 'shareholder',
+            disabled: false,
+            createdAt: new Date().toISOString()
+          });
+
+          for (const p of s.payments) {
+            await setDoc(doc(collection(db, 'reports')), {
+              shareholderCode: s.code,
+              month: p.month,
+              amount: p.amount,
+              premiumAmount: 0,
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      }
+
       // Notice
       const noticeSnap = await getDocs(collection(db, 'notices'));
       if (noticeSnap.empty) {
@@ -612,31 +747,72 @@ export default function App() {
   };
 
   const fetchReports = async () => {
-    setIsFetchingReports(true);
+    // Reports are now fetched via real-time listener when on reports tab
+  };
+
+  const fetchTasks = async () => {
+    setIsFetchingTasks(true);
     try {
-      const snap = await getDocs(collection(db, 'reports'));
-      setReportsList(snap.docs.map(doc => ({ ...doc.data(), id: doc.id })));
+      const q = query(collection(db, 'tasks'));
+      const unsub = onSnapshot(q, (snap) => {
+        setTasks(snap.docs.map(doc => ({ ...doc.data(), id: doc.id } as Task)));
+        setIsFetchingTasks(false);
+      });
+      return unsub;
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'reports');
-    } finally {
-      setIsFetchingReports(false);
+      handleFirestoreError(error, OperationType.LIST, 'tasks');
+      setIsFetchingTasks(false);
     }
   };
 
+  const addTask = async () => {
+    if (!taskForm.title || !taskForm.assigneeId) {
+      showToast("শিরোনাম এবং দায়িত্বপ্রাপ্ত ব্যক্তি নির্বাচন করুন", "error");
+      return;
+    }
+    try {
+      const newTask = {
+        ...taskForm,
+        createdAt: new Date().toISOString(),
+        creatorId: user?.uid || 'system'
+      };
+      await setDoc(doc(collection(db, 'tasks')), newTask);
+      showToast("টাস্ক সফলভাবে তৈরি হয়েছে", "success");
+      setTaskForm({ title: '', description: '', assigneeId: '', assigneeName: '', dueDate: '', status: 'To Do' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'tasks');
+    }
+  };
+
+  const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
+    try {
+      await updateDoc(doc(db, 'tasks', taskId), { status: newStatus });
+      showToast("স্ট্যাটাস আপডেট হয়েছে", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `tasks/${taskId}`);
+    }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    try {
+      // Logic for deleting task if needed
+    } catch (error) {}
+  };
+
   const searchReport = async () => {
-    if (!reportSearchCode) return;
+    if (!reportSearchCode) {
+      showToast("কোড দিন", "error");
+      return;
+    }
     setIsFetchingReports(true);
     try {
-      // Direct query would be better, but for simplicity we filter lists if small, 
-      // or do a targeted fetch. Let's do a targeted fetch.
-      const snap = await getDocs(collection(db, 'reports'));
-      const filtered = snap.docs
-        .map(doc => ({ ...doc.data(), id: doc.id }))
-        .filter((r: any) => r.shareholderCode.toUpperCase().includes(reportSearchCode.toUpperCase()));
-      setSearchResult(filtered);
-      if (filtered.length === 0) showToast("কোন রিপোর্ট পাওয়া যায়নি", "info");
+      const q = query(collection(db, 'reports'), where('shareholderCode', '==', reportSearchCode));
+      const snap = await getDocs(q);
+      const list = snap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+      setSearchResult(list);
+      if (list.length === 0) showToast("কোন রিপোর্ট পাওয়া যায়নি", "info");
     } catch (error) {
-      handleFirestoreError(error, OperationType.LIST, 'reports');
+      handleFirestoreError(error, OperationType.LIST, `reports?code=${reportSearchCode}`);
     } finally {
       setIsFetchingReports(false);
     }
@@ -813,34 +989,50 @@ export default function App() {
 
   const handleCustomLogin = async (role: 'admin' | 'user', identifier: string) => {
     try {
-      const uid = "mock_" + Math.random().toString(36).substr(2, 9);
-      const profile = {
-        uid: uid,
-        role: role,
-        identifier: identifier,
-        displayName: role === 'admin' ? 'Admin' : 'Shareholder'
-      };
+      setLoading(true);
+      
+      // Look for existing user with this identifier
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('identifier', '==', identifier));
+      const querySnapshot = await getDocs(q);
+      
+      let profile: any = null;
+      let uid = "";
+
+      if (!querySnapshot.empty) {
+        // User exists
+        const userDoc = querySnapshot.docs[0];
+        profile = { ...userDoc.data(), id: userDoc.id };
+        uid = userDoc.id;
+        
+        if (profile.disabled) {
+          showToast("আপনার অ্যাকাউন্টটি লক করা হয়েছে", "error");
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Create new user
+        uid = "user_" + Date.now();
+        profile = {
+          uid: uid,
+          identifier: identifier,
+          displayName: role === 'admin' ? 'Admin' : 'Shareholder',
+          role: role,
+          disabled: role === 'admin' ? false : false, // Default active
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'users', uid), profile);
+      }
       
       setUserProfile(profile);
       localStorage.setItem('insaf_user_profile', JSON.stringify(profile));
-      
-      // Since Anonymous Auth is disabled by the user in Firebase, we'll bypass actual Firebase Auth
-      // and write the profile directly to Firestore using our open rules so the admin panel works.
-      await setDoc(doc(db, 'users', uid), {
-        uid: uid,
-        identifier: identifier,
-        displayName: profile.displayName,
-        role: role,
-        disabled: false,
-        createdAt: new Date().toISOString()
-      }, { merge: true });
-      
       showToast("সফলভাবে লগইন করা হয়েছে!", "success");
       
     } catch (err: any) {
-      console.error("Login Write Error:", err);
-      // In case Firestore writes fail, we still consider them logged in locally
-      showToast("সফলভাবে লগইন করা হয়েছে (লোকাল)", "success");
+      console.error("Login Error:", err);
+      showToast("লগইন ব্যর্থ হয়েছে", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1080,9 +1272,7 @@ export default function App() {
                   <img src={logo} alt="Al-Insaf Logo" className="w-full h-full object-contain scale-110" referrerPolicy="no-referrer" />
                 </div>
               </div>
-              <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">
-                {username ? `আসসালামু আলাইকুম, ${username}!` : "আল-ইনসাফ এ আপনাকে স্বাগতম"}
-              </span>
+              <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">আল-ইনসাফ এ আপনাকে স্বাগতম</span>
               <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6">নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span></h1>
               <p className="text-lg text-gray-200 max-w-2xl mx-auto mb-10 font-light leading-relaxed">স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ।</p>
               <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -1357,6 +1547,9 @@ export default function App() {
                     <button onClick={() => { setAdminTab('messages'); setIsEditing(null); fetchMessages(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'messages' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                       <Mail size={16} /> মেসেজ
                     </button>
+                    <button onClick={() => { setAdminTab('tasks'); setIsEditing(null); fetchTasks(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'tasks' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <Activity size={16} /> টাস্ক
+                    </button>
                   </div>
 
                   <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-[#FDFCF0]/30 custom-scrollbar">
@@ -1587,23 +1780,49 @@ export default function App() {
                             )}
                           </div>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in duration-500">
-                            {[
-                              { id: 'stats', label: 'মেম্বার সংখ্যা ও রিপোর্ট লিংক', icon: <Database size={18}/> },
-                              { id: 'intro', label: 'পরিচিতি ও মূল বাণীসমূহ', icon: <User size={18}/> },
-                              { id: 'progress', label: 'কার্যক্রম ও প্রজেক্ট তালিকা', icon: <Activity size={18}/> },
-                              { id: 'objectives', label: 'উদ্দেশ্য ও ভিশন-মিশন', icon: <Target size={18}/> }
-                            ].map((item) => (
-                              <div key={item.id} onClick={() => startEditing(item.id)} className="bg-white p-6 rounded-3xl border border-gray-100 hover:border-[#D4AF37] hover:shadow-xl transition-all group cursor-pointer shadow-sm">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 group-hover:bg-[#D4AF37]/10 group-hover:text-[#D4AF37] transition-all flex items-center justify-center">{item.icon}</div>
-                                    <h4 className="font-bold text-[#064E3B] text-sm">{item.label}</h4>
+                          <div className="space-y-8 animate-in fade-in duration-500">
+                            <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                               <div className="flex items-center gap-3 mb-6">
+                                 <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center">
+                                   <Database size={20} />
+                                 </div>
+                                 <div>
+                                   <h3 className="font-bold text-[#064E3B]">ডাটা ম্যানেজমেন্ট ও সিঙ্ক্রোনাইজেশন</h3>
+                                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none">Update core shareholder records</p>
+                                 </div>
+                               </div>
+                               
+                               <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-6 font-sans">
+                                  <p className="text-xs text-gray-600 leading-relaxed mb-4">
+                                     অফিসিয়াল ২০ জন শেয়ারহোল্ডারের তথ্য (নাম, মোবাইল নম্বর এবং প্রারম্ভিক জমা) ডাটাবেসে সিঙ্ক করতে নিচের বাটনে ক্লিক করুন। এটি নতুন ইউজারদের জন্য প্রোফাইল তৈরি করবে এবং ব্যালেন্স আপডেট করবে।
+                                  </p>
+                                  <button 
+                                    onClick={syncOfficialData}
+                                    className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition-all text-sm"
+                                  >
+                                    <Activity size={16} /> অফিসিয়াল ডাটা সিঙ্ক করুন
+                                  </button>
+                               </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {[
+                                { id: 'stats', label: 'মেম্বার সংখ্যা ও রিপোর্ট লিংক', icon: <Database size={18}/> },
+                                { id: 'intro', label: 'পরিচিতি ও মূল বাণীসমূহ', icon: <User size={18}/> },
+                                { id: 'progress', label: 'কার্যক্রম ও প্রজেক্ট তালিকা', icon: <Activity size={18}/> },
+                                { id: 'objectives', label: 'উদ্দেশ্য ও ভিশন-মিশন', icon: <Target size={18}/> }
+                              ].map((item) => (
+                                <div key={item.id} onClick={() => startEditing(item.id)} className="bg-white p-6 rounded-3xl border border-gray-100 hover:border-[#D4AF37] hover:shadow-xl transition-all group cursor-pointer shadow-sm">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-xl bg-gray-50 text-gray-400 group-hover:bg-[#D4AF37]/10 group-hover:text-[#D4AF37] transition-all flex items-center justify-center">{item.icon}</div>
+                                      <h4 className="font-bold text-[#064E3B] text-sm">{item.label}</h4>
+                                    </div>
+                                    <ChevronRight size={18} className="text-gray-200 group-hover:text-[#D4AF37] group-hover:translate-x-1 transition-all" />
                                   </div>
-                                  <ChevronRight size={18} className="text-gray-200 group-hover:text-[#D4AF37] group-hover:translate-x-1 transition-all" />
                                 </div>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1725,6 +1944,86 @@ export default function App() {
                                     ))}
                                  </tbody>
                               </table>
+                           </div>
+                        </div>
+                      </div>
+                    ) : adminTab === 'tasks' ? (
+                      <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                          <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-4">নতুন টাস্ক তৈরি করুন</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">টাস্ক শিরোনাম</label>
+                              <input type="text" value={taskForm.title} onChange={(e) => setTaskForm({...taskForm, title: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="যেমন: মাসিক রিপোর্ট তৈরি করুন" />
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">বিস্তারিত বিবরণ</label>
+                              <textarea rows={3} value={taskForm.description} onChange={(e) => setTaskForm({...taskForm, description: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-medium" placeholder="টাস্ক সম্পর্কে বিস্তারিত লিখুন..." />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">দায়িত্বপ্রাপ্ত ব্যক্তি</label>
+                              <select 
+                                value={taskForm.assigneeId} 
+                                onChange={(e) => {
+                                  const selectedUser = usersList.find(u => u.uid === e.target.value);
+                                  setTaskForm({
+                                    ...taskForm, 
+                                    assigneeId: e.target.value, 
+                                    assigneeName: selectedUser ? (selectedUser.displayName || selectedUser.email) : ''
+                                  });
+                                }} 
+                                className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold appearance-none"
+                              >
+                                <option value="">নির্বাচন করুন</option>
+                                {usersList.filter(u => u.role === 'admin' || u.role === 'employee').map(u => (
+                                  <option key={u.uid} value={u.uid}>{u.displayName || u.email} ({u.role})</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">শেষ সময় (Deadline)</label>
+                              <input type="date" value={taskForm.dueDate} onChange={(e) => setTaskForm({...taskForm, dueDate: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                            </div>
+                          </div>
+                          <button onClick={addTask} className="mt-6 w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg shadow-[#064E3B]/20 hover:bg-[#064E3B]/90 transition-all">টাস্ক অ্যাসাইন করুন</button>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                           <h3 className="font-serif font-bold text-lg text-[#064E3B] mb-4">টাস্ক লিস্ট</h3>
+                           <div className="space-y-4">
+                              {tasks.length === 0 ? (
+                                <p className="text-center py-10 text-gray-400 text-xs italic">কোন টাস্ক পাওয়া যায়নি</p>
+                              ) : (
+                                tasks.map((t) => (
+                                  <div key={t.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h4 className="font-bold text-[#064E3B]">{t.title}</h4>
+                                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                          t.status === 'Completed' ? 'bg-green-100 text-green-600' : 
+                                          t.status === 'In Progress' ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'
+                                        }`}>{t.status}</span>
+                                      </div>
+                                      <p className="text-xs text-gray-500 line-clamp-2 mb-2">{t.description}</p>
+                                      <div className="flex items-center gap-4 text-[10px] text-gray-400 font-bold uppercase tracking-tight">
+                                        <span className="flex items-center gap-1"><User size={10} /> {t.assigneeName}</span>
+                                        <span className="flex items-center gap-1"><Activity size={10} /> {t.dueDate || 'No deadline'}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <select 
+                                        value={t.status} 
+                                        onChange={(e) => updateTaskStatus(t.id!, e.target.value as any)}
+                                        className="text-[10px] font-bold bg-white border border-gray-200 rounded-lg px-2 py-1 outline-none"
+                                      >
+                                        <option value="To Do">To Do</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Completed">Completed</option>
+                                      </select>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
                            </div>
                         </div>
                       </div>
@@ -1918,15 +2217,21 @@ export default function App() {
                     <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
                     <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">প্রোফাইল তথ্য</p>
+                       <h3 className="text-xl font-bold text-[#064E3B]">{userProfile?.displayName}</h3>
+                       <p className="text-xs text-gray-500 font-medium">কোড: {userProfile?.shareholderCode}</p>
+                       <p className="text-xs text-gray-500 font-medium">মোবাইল: {userProfile?.identifier}</p>
+                    </div>
+                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner flex flex-col justify-center">
                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">আপনার কোড</p>
                        <h3 className="text-2xl font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'নির্ধারিত হয়নি'}</h3>
                     </div>
                     <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">মোট জমা (৳)</p>
-                       <h3 className="text-2xl font-serif font-bold text-emerald-600">
-                          {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0)}
+                       <h3 className="text-3xl font-serif font-bold text-emerald-600">
+                          ৳ {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0).toLocaleString('bn-BD')}
                        </h3>
                     </div>
                   </div>
@@ -1954,6 +2259,55 @@ export default function App() {
                            </div>
                          </motion.div>
                        ))}
+                    </div>
+                  </div>
+
+                  {/* My Tasks Section */}
+                  <div className="mt-8 pt-8 border-t border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-serif font-bold text-xl text-[#064E3B]">আমার টাস্কসমূহ</h3>
+                      <span className="text-[10px] bg-[#D4AF37]/10 text-[#064E3B] px-3 py-1 rounded-full font-bold uppercase tracking-widest">{myTasks.length} টি টাস্ক</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4">
+                      {myTasks.length === 0 ? (
+                        <div className="p-8 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                          <p className="text-gray-400 text-sm italic">আপনার জন্য কোন টাস্ক নেই</p>
+                        </div>
+                      ) : (
+                        myTasks.map(t => (
+                          <div key={t.id} className="p-5 bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start mb-2">
+                              <h4 className="font-bold text-[#064E3B]">{t.title}</h4>
+                              <span className={`text-[10px] px-2 py-1 rounded-lg font-bold uppercase ${
+                                t.status === 'Completed' ? 'bg-green-100 text-green-600' : 
+                                t.status === 'In Progress' ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-600'
+                              }`}>{t.status}</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mb-4">{t.description}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="flex items-center gap-4 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                                <span className="flex items-center gap-1"><Activity size={12} /> Deadline: {t.dueDate || 'N/A'}</span>
+                              </div>
+                              <div className="flex gap-2">
+                                {t.status !== 'Completed' && (
+                                  <button 
+                                    onClick={() => updateTaskStatus(t.id!, 'In Progress')}
+                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${t.status === 'In Progress' ? 'bg-blue-500 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                                  >
+                                    শুরু করুন
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={() => updateTaskStatus(t.id!, t.status === 'Completed' ? 'In Progress' : 'Completed')}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all ${t.status === 'Completed' ? 'bg-gray-100 text-gray-400' : 'bg-green-500 text-white hover:bg-green-600'}`}
+                                >
+                                  {t.status === 'Completed' ? 'পুনর্বার শুরু করুন' : 'শেষ করুন'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -2052,16 +2406,6 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
-
-      {showOnboarding && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
-          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl">
-            <h2 className="text-2xl font-bold text-[#064E3B] mb-6">আপনার নাম কি?</h2>
-            <input type="text" onChange={(e) => setUsername(e.target.value)} placeholder="নাম লিখুন" className="w-full p-4 mb-6 bg-gray-50 rounded-xl outline-none" />
-            <button onClick={() => saveUsername(username)} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl">সেভ করুন</button>
-          </motion.div>
-        </div>
-      )}
 
       {isLoginModalOpen && (
         <LoginModal onClose={() => setIsLoginModalOpen(false)} onLogin={handleCustomLogin} />
