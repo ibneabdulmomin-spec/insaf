@@ -931,59 +931,7 @@ export default function App() {
               </button>
               
               <AnimatePresence>
-                {isMoreMenuOpen && (
-                  <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }} className={`absolute right-0 mt-2 w-64 rounded-xl shadow-xl border overflow-hidden z-50 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}>
-                    {userProfile ? (
-                      <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#064E3B] font-bold">{userProfile?.displayName?.charAt(0) || 'U'}</div>
-                          <div className="flex flex-col overflow-hidden">
-                            <span className="text-sm font-bold truncate">{userProfile?.displayName || 'User'}</span>
-                            <span className="text-[10px] text-gray-500 truncate">{userProfile?.identifier || userProfile?.email || ''}</span>
-                          </div>
-                        </div>
-                        <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider inline-block ${userProfile?.role === 'admin' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{userProfile?.role || 'User'}</div>
-                      </div>
-                    ) : (
-                      <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}><p className="text-xs text-gray-500">অ্যাকাউন্টে লগইন করুন</p></div>
-                    )}
-                    <div className={`p-3 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
-                      <p className={`text-[11px] leading-relaxed ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>আপনার প্রিমিয়াম রিপোর্ট দেখতে এখানে ক্লিক করুন।</p>
-                    </div>
-                    <div className="p-2 space-y-1">
-                      <button onClick={() => { openModal('reports-search'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
-                        <div className="w-8 h-8 rounded-lg bg-[#064E3B]/10 text-[#064E3B] flex items-center justify-center"><Search size={18} /></div>
-                        <span className="text-sm font-bold">রিপোর্ট সার্চ</span>
-                      </button>
-                      {userProfile && (
-                        <>
-                          <button onClick={() => { openModal('members-directory'); setIsMoreMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
-                            <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center"><Users size={18} /></div>
-                            <span className="text-sm font-bold">মেম্বার ডিরেক্টরি</span>
-                          </button>
-                          <button onClick={() => { openModal('my-account'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
-                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><User size={18} /></div>
-                            <span className="text-sm font-bold">আমার ড্যাশবোর্ড</span>
-                          </button>
-                        </>
-                      )}
-                      {userProfile?.role === 'admin' && (
-                        <button onClick={() => { openAdminModal(); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
-                          <Settings size={18} className="text-[#D4AF37]" /><span className="text-sm font-bold">অ্যাডমিন সেটিংস</span>
-                        </button>
-                      )}
-                      {userProfile ? (
-                        <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-red-500 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-red-50'}`}>
-                          <LogOut size={18} /><span className="text-sm font-bold">লগআউট</span>
-                        </button>
-                      ) : (
-                        <button onClick={handleLogin} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-blue-500 ${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-blue-50'}`}>
-                          <LogIn size={18} /><span className="text-sm font-bold">লগইন করুন</span>
-                        </button>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
+                {/* Replaced desktop dropdown with modal-based mobile menu style trigger */}
               </AnimatePresence>
             </div>
 
@@ -995,46 +943,10 @@ export default function App() {
 
           <div className="flex items-center gap-4 md:hidden">
             <button onClick={toggleDarkMode} className={`p-2 rounded-full transition-colors ${isDarkMode ? 'bg-gray-800 text-yellow-400' : 'bg-gray-100 text-gray-600'}`}>{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</button>
-            <button className={`${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`} onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>{isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}</button>
+            <button className={`${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`} onClick={() => openModal('menu')}><Menu size={28} /></button>
           </div>
         </div>
 
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className={`md:hidden border-b overflow-hidden transition-colors duration-500 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-[#D4AF37]/20'}`}>
-              <div className="px-4 py-4 flex flex-col gap-4">
-                <button onClick={() => scrollToSection('home')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>হোম</button>
-                <button onClick={() => scrollToSection('explore')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>বিস্তারিত</button>
-                <button onClick={() => scrollToSection('contact')} className={`text-left font-medium py-2 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}>যোগাযোগ</button>
-                {userProfile ? (
-                  <div className={`py-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-50'}`}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#064E3B] font-bold">{userProfile?.displayName?.charAt(0) || 'U'}</div>
-                      <div className="flex flex-col"><span className="text-sm font-bold">{userProfile?.displayName || 'User'}</span><span className="text-[10px] text-gray-500">{userProfile?.identifier || userProfile?.email || ''}</span></div>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {userProfile?.role === 'admin' && (<button onClick={() => { openAdminModal(); setIsMobileMenuOpen(false); }} className="flex items-center gap-2 text-sm font-bold text-[#D4AF37]"><Settings size={16} /> অ্যাডমিন সেটিংস</button>)}
-                      <button onClick={handleLogout} className="flex items-center gap-2 text-sm font-bold text-red-500"><LogOut size={16} /> লগআউট</button>
-                    </div>
-                  </div>
-                ) : (
-                  <button onClick={handleLogin} className={`flex items-center gap-3 py-3 border-b transition-colors ${isDarkMode ? 'text-gray-300 border-gray-800' : 'text-gray-700 border-gray-50'}`}><LogIn size={20} className="text-blue-500" /><span className="font-medium">লগইন করুন</span></button>
-                )}
-                  <div className={`py-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-50'}`}>
-                    <p className={`text-[11px] leading-relaxed mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>আপনার প্রিমিয়াম রিপোর্ট দেখতে এখানে ক্লিক করুন।</p>
-                    <button onClick={() => { openModal('reports-search'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><Search size={20} className="text-[#D4AF37]" /><span className="font-medium">রিপোর্ট সার্চ</span></button>
-                    {userProfile && (
-                       <>
-                         <button onClick={() => { openModal('members-directory'); setIsMobileMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><Users size={20} className="text-blue-500" /><span className="font-medium">মেম্বার ডিরেক্টরি</span></button>
-                         <button onClick={() => { openModal('my-account'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><User size={20} className="text-emerald-600" /><span className="font-medium">আমার ড্যাশবোর্ড</span></button>
-                       </>
-                    )}
-                  </div>
-                <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="bg-[#064E3B] text-white px-5 py-3 rounded-lg text-center font-medium mt-2">যুক্ত হোন</button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </header>
 
       <main className="pt-20">
@@ -1226,10 +1138,90 @@ export default function App() {
         </section>
       </main>
 
+      <AnimatePresence>
+        {activeModal === 'menu' && (
+          <motion.div initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className={`fixed inset-0 z-[100] flex flex-col ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+            <div className="flex justify-between items-center p-4 border-b">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#0a192f] rounded-full overflow-hidden border border-[#D4AF37]/30 flex items-center justify-center shadow-inner">
+                  <img src={logo} alt="Logo" className="w-full h-full object-contain scale-110" referrerPolicy="no-referrer" />
+                </div>
+                <h2 className={`font-serif text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>মেনু সূচি</h2>
+              </div>
+              <button onClick={closeModal} className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-800'}`}><X size={24} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 pb-24">
+              <div className="grid grid-cols-3 gap-3">
+                <button onClick={() => { scrollToSection('home'); closeModal(); }} className={`flex flex-col items-center justify-center p-5 rounded-2xl font-bold text-sm ${isDarkMode ? 'bg-gray-800 text-emerald-400' : 'bg-emerald-50 text-emerald-600'}`}>
+                  <LayoutDashboard size={28} className="mb-2" />
+                  হোম
+                </button>
+                <button onClick={() => { scrollToSection('explore'); closeModal(); }} className={`flex flex-col items-center justify-center p-5 rounded-2xl font-bold text-sm ${isDarkMode ? 'bg-gray-800 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                  <Info size={28} className="mb-2" />
+                  বিস্তারিত
+                </button>
+                <button onClick={() => { scrollToSection('contact'); closeModal(); }} className={`flex flex-col items-center justify-center p-5 rounded-2xl font-bold text-sm ${isDarkMode ? 'bg-gray-800 text-orange-400' : 'bg-orange-50 text-orange-600'}`}>
+                  <Mail size={28} className="mb-2" />
+                  যোগাযোগ
+                </button>
+              </div>
+
+              {userProfile && (
+                <div className={`p-4 rounded-2xl border flex justify-between items-center ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-[#D4AF37] flex items-center justify-center text-[#064E3B] font-bold text-lg">{userProfile?.displayName?.charAt(0) || 'U'}</div>
+                    <div className="flex flex-col">
+                      <span className={`font-bold text-lg ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{userProfile?.displayName || 'User'}</span>
+                      <span className="text-xs text-gray-500">আইডি: TBC</span>
+                    </div>
+                  </div>
+                  <button onClick={() => { handleLogout(); closeModal(); }} className={`p-2 rounded-full ${isDarkMode ? 'bg-gray-700 text-red-400' : 'bg-red-50 text-red-500'}`}>
+                    <LogOut size={20} />
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button onClick={() => { openModal('reports-search'); }} className={`flex items-center gap-3 p-4 rounded-2xl font-bold text-sm justify-center border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-[#064E3B]'}`}>
+                  <Search size={20} />
+                  রিপোর্ট সার্চ
+                </button>
+                {userProfile && (
+                  <button onClick={() => { openModal('my-account'); }} className={`flex items-center gap-3 p-4 rounded-2xl font-bold text-sm justify-center border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-orange-400' : 'bg-orange-50 border-orange-100 text-[#D4AF37]'}`}>
+                    <User size={20} />
+                    ড্যাশবোর্ড
+                  </button>
+                )}
+                {userProfile && (
+                  <button onClick={() => { openModal('members-directory'); fetchUsers(); }} className={`flex items-center gap-3 p-4 rounded-2xl font-bold text-sm justify-center border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                    <Users size={20} />
+                    ডিরেক্টরি
+                  </button>
+                )}
+                {userProfile?.role === 'admin' && (
+                  <button onClick={() => { openAdminModal(); }} className={`flex items-center gap-3 p-4 rounded-2xl font-bold text-sm justify-center border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-yellow-400' : 'bg-yellow-50 border-yellow-100 text-orange-500'}`}>
+                    <Settings size={20} />
+                    অ্যাডমিন
+                  </button>
+                )}
+              </div>
+
+              {!userProfile && (
+                <div className="grid grid-cols-2 gap-3 mt-4">
+                  <button onClick={() => { handleLogin(); closeModal(); }} className="bg-[#064E3B] text-white py-4 rounded-2xl font-bold text-lg shadow-md hover:bg-[#064E3B]/90">লগইন</button>
+                  <button onClick={() => { openModal('join'); closeModal(); }} className="bg-[#D4AF37] text-[#064E3B] py-4 rounded-2xl font-bold text-lg shadow-md hover:bg-[#D4AF37]/90">সদস্য হোন</button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Footer isDarkMode={isDarkMode} scrollToSection={scrollToSection} openModal={openModal} />
 
       <AnimatePresence>
-        {activeModal && (
+        {activeModal && activeModal !== 'menu' && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeModal} className="absolute inset-0 bg-[#064E3B]/80 backdrop-blur-sm" />
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden">
