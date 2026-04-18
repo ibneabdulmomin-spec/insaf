@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX, Download } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX, Download, Upload } from 'lucide-react';
 import { LoginModal } from './components/LoginModal';
 import { Footer } from './components/Footer';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -9,7 +9,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where, writeBatch } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -621,6 +621,75 @@ export default function App() {
     }
   };
 
+  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target?.result as string;
+      const rows = text.split('\n').map(row => row.trim()).filter(row => row !== '');
+      if (rows.length < 2) {
+         showToast("CSV ফাইলে কোনো ডাটা নেই", "error");
+         return;
+      }
+
+      // Updated to requested headers: কোড, নাম, নাম্বার, মোট টাকা
+      const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+      const codeIdx = headers.findIndex(h => h.includes('code') || h.includes('কোড'));
+      const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('নাম'));
+      const numberIdx = headers.findIndex(h => h.includes('number') || h.includes('নাম্বার'));
+      const amountIdx = headers.findIndex(h => h.includes('amount') || h.includes('টাকা') || h.includes('মোট'));
+
+      if (codeIdx === -1 || nameIdx === -1 || numberIdx === -1 || amountIdx === -1) {
+         showToast("CSV ফরম্যাট ঠিক নেই। 'কোড', 'নাম', 'নাম্বার', 'মোট টাকা' কলাম থাকা আবশ্যক।", "error");
+         return;
+      }
+
+      showToast("আপলোড শুরু হয়েছে, দয়া করে অপেক্ষা করুন...", "info");
+      
+      try {
+        const batch = writeBatch(db);
+        let count = 0;
+        
+        for (let i = 1; i < rows.length; i++) {
+           const cols = rows[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+           if (cols.length < 4 || !cols[codeIdx]) continue;
+
+           const amount = Number(cols[amountIdx].replace(/[^0-9.-]+/g,"")) || 0;
+
+           // To keep backwards compatibility with the UI we store month as Name/Number context
+           // Or update the report generation to use 'name' and 'phoneNumber' directly.
+           const newReportRef = doc(collection(db, 'reports'));
+           batch.set(newReportRef, {
+              shareholderCode: cols[codeIdx] || '',
+              name: cols[nameIdx] || '',
+              phoneNumber: cols[numberIdx] || '',
+              month: new Date().toLocaleDateString('bn-BD', { month: 'long', year: 'numeric' }), // auto-set current month since it's not in CSV
+              amount: amount,
+              premiumAmount: 0, // Not requested
+              timestamp: new Date().toISOString()
+           });
+           count++;
+        }
+        
+        if (count > 0) {
+           await batch.commit();
+           showToast(`${count} টি রিপোর্ট সফলভাবে আপলোড হয়েছে!`, "success");
+           fetchReports();
+        } else {
+           showToast("আপলোড করার মত কোনো ডাটা পাওয়া যায়নি।", "error");
+        }
+      } catch(error) {
+        handleFirestoreError(error, OperationType.WRITE, 'reports (batch)');
+        showToast("আপলোড করতে সমস্যা হয়েছে", "error");
+      } finally {
+        event.target.value = ''; // Reset input
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const searchReport = async () => {
     if (!reportSearchCode) return;
     setIsFetchingReports(true);
@@ -1216,12 +1285,6 @@ export default function App() {
                     ড্যাশবোর্ড
                   </button>
                 )}
-                {userProfile && (
-                  <button onClick={() => { openModal('members-directory'); fetchUsers(); }} className={`flex items-center gap-3 p-4 rounded-2xl font-bold text-sm justify-center border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-blue-400' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
-                    <Users size={20} />
-                    ডিরেক্টরি
-                  </button>
-                )}
                 {userProfile?.role === 'admin' && (
                   <button onClick={() => { openAdminModal(); }} className={`flex items-center gap-3 p-4 rounded-2xl font-bold text-sm justify-center border transition-all ${isDarkMode ? 'bg-gray-800 border-gray-700 text-yellow-400' : 'bg-yellow-50 border-yellow-100 text-orange-500'}`}>
                     <Settings size={20} />
@@ -1609,27 +1672,54 @@ export default function App() {
                       </div>
                     ) : adminTab === 'reports' ? (
                       <div className="space-y-6 animate-in fade-in duration-500">
-                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-                          <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-4">নতুন রিপোর্ট এন্ট্রি</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">শেয়ারহোল্ডার কোড</label>
-                              <input type="text" value={reportForm.shareholderCode} onChange={(e) => setReportForm({...reportForm, shareholderCode: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="যেমন: INS-101" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
+                            <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-4">নতুন রিপোর্ট এন্ট্রি</h3>
+                            <div className="grid grid-cols-1 gap-4 flex-1">
+                              <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">শেয়ারহোল্ডার কোড</label>
+                                <input type="text" value={reportForm.shareholderCode} onChange={(e) => setReportForm({...reportForm, shareholderCode: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="যেমন: INS-101" />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">মাস</label>
+                                <input type="text" value={reportForm.month} onChange={(e) => setReportForm({...reportForm, month: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="যেমন: জানুয়ারি ২০২৪" />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">জমা (৳)</label>
+                                  <input type="number" value={reportForm.amount} onChange={(e) => setReportForm({...reportForm, amount: Number(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">প্রিমিয়াম (৳)</label>
+                                  <input type="number" value={reportForm.premiumAmount} onChange={(e) => setReportForm({...reportForm, premiumAmount: Number(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">মাস</label>
-                              <input type="text" value={reportForm.month} onChange={(e) => setReportForm({...reportForm, month: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" placeholder="যেমন: জানুয়ারি ২০২৪" />
+                            <button onClick={() => addReport(reportForm)} className="mt-6 w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg shadow-[#064E3B]/20 hover:bg-[#064E3B]/90 transition-all shrink-0">রিপোর্ট সেভ করুন</button>
+                          </div>
+
+                          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
+                            <h3 className="font-serif font-bold text-xl text-[#064E3B] mb-2">বাল্ক আপলোড (CSV)</h3>
+                            <p className="text-xs text-gray-500 mb-6">একসাথে একাধিক রিপোর্ট আপলোড করতে CSV ফাইল নির্বাচন করুন। ডাটাবেসে সেভ হওয়ার পর সদস্যরা তাদের ড্যাশবোর্ডে ও সার্চে তথ্যগুলো দেখতে পারবেন।</p>
+                            
+                            <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-emerald-100 bg-emerald-50/30 rounded-2xl p-6 mb-6">
+                               <Upload size={40} className="text-[#D4AF37] mb-4" />
+                               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" id="csv-upload" />
+                               <label htmlFor="csv-upload" className="cursor-pointer px-6 py-2.5 bg-white border border-[#D4AF37]/30 text-[#064E3B] font-bold rounded-xl hover:bg-[#D4AF37]/10 transition-all shadow-sm">
+                                  ফাইন্ড CSV ফাইল
+                               </label>
                             </div>
-                            <div>
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">জমা পরিমাণ (৳)</label>
-                              <input type="number" value={reportForm.amount} onChange={(e) => setReportForm({...reportForm, amount: Number(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
-                            </div>
-                            <div>
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">প্রিমিয়াম (৳)</label>
-                              <input type="number" value={reportForm.premiumAmount} onChange={(e) => setReportForm({...reportForm, premiumAmount: Number(e.target.value)})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+
+                            <div className="bg-orange-50 border border-orange-100 p-4 rounded-xl shrink-0">
+                               <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-2 flex items-center gap-1"><Info size={12}/> কলাম হেডার (অবশ্যই থাকতে হবে)</p>
+                               <div className="flex flex-wrap gap-2">
+                                  <span className="text-xs bg-white px-2 py-1 rounded-md border border-orange-100 font-mono font-bold">কোড</span>
+                                  <span className="text-xs bg-white px-2 py-1 rounded-md border border-orange-100 font-mono font-bold">নাম</span>
+                                  <span className="text-xs bg-white px-2 py-1 rounded-md border border-orange-100 font-mono font-bold">নাম্বার</span>
+                                  <span className="text-xs bg-white px-2 py-1 rounded-md border border-orange-100 font-mono font-bold">মোট টাকা</span>
+                               </div>
                             </div>
                           </div>
-                          <button onClick={() => addReport(reportForm)} className="mt-6 w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg shadow-[#064E3B]/20 hover:bg-[#064E3B]/90 transition-all">রিপোর্ট সেভ করুন</button>
                         </div>
 
                         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
@@ -1642,7 +1732,7 @@ export default function App() {
                                  <thead>
                                     <tr className="text-left border-b border-gray-50">
                                        <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">কোড</th>
-                                       <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">মাস</th>
+                                       <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">নাম / মাস</th>
                                        <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">পরিমাণ</th>
                                     </tr>
                                  </thead>
@@ -1650,7 +1740,7 @@ export default function App() {
                                     {reportsList.slice(0, 10).map((r: any) => (
                                        <tr key={r.id}>
                                           <td className="py-3 text-sm font-bold text-[#064E3B]">{r.shareholderCode}</td>
-                                          <td className="py-3 text-xs text-gray-500">{r.month}</td>
+                                          <td className="py-3 text-xs text-gray-500">{r.name ? `${r.name} (${r.phoneNumber})` : r.month}</td>
                                           <td className="py-3 text-sm font-bold text-emerald-600 text-right">৳{r.amount}</td>
                                        </tr>
                                     ))}
@@ -1878,12 +1968,21 @@ export default function App() {
                            {personalReports.map((r: any) => (
                              <div key={r.id} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex justify-between items-center group">
                                <div>
-                                 <p className="font-bold text-[#064E3B]">{r.month}</p>
-                                 <p className="text-[9px] text-gray-400 font-bold uppercase">{new Date(r.timestamp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                 {r.name ? (
+                                   <>
+                                     <p className="font-bold text-[#064E3B]">{r.name}</p>
+                                     <p className="text-[9px] text-gray-400 font-bold uppercase">{r.phoneNumber || '...'}</p>
+                                   </>
+                                 ) : (
+                                   <>
+                                     <p className="font-bold text-[#064E3B]">{r.month}</p>
+                                     <p className="text-[9px] text-gray-400 font-bold uppercase">{new Date(r.timestamp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                   </>
+                                 )}
                                </div>
                                <div className="text-right">
                                  <p className="text-lg font-bold text-emerald-600">৳{r.amount}</p>
-                                 {r.premiumAmount > 0 && <p className="text-[8px] text-amber-600 font-bold uppercase tracking-tight">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
+                                 {r.premiumAmount > 0 ? <p className="text-[8px] text-amber-600 font-bold uppercase tracking-tight">প্রিমিয়াম: ৳{r.premiumAmount}</p> : <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight">{new Date(r.timestamp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}</p>}
                                </div>
                              </div>
                            ))}
@@ -1942,12 +2041,21 @@ export default function App() {
                             {searchResult.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((r: any) => (
                               <div key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center">
                                 <div>
-                                  <p className="font-bold text-[#064E3B] text-lg">{r.month}</p>
-                                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
+                                  {r.name ? (
+                                    <>
+                                       <p className="font-bold text-[#064E3B] text-lg">{r.name}</p>
+                                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{r.phoneNumber || '...'}</p>
+                                    </>
+                                  ) : (
+                                    <>
+                                       <p className="font-bold text-[#064E3B] text-lg">{r.month}</p>
+                                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
+                                    </>
+                                  )}
                                 </div>
                                 <div className="text-right">
                                   <p className="text-2xl font-serif font-bold text-emerald-600">৳{r.amount}</p>
-                                  {r.premiumAmount > 0 && <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
+                                  {r.premiumAmount > 0 ? <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p> : <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>}
                                 </div>
                               </div>
                             ))}
