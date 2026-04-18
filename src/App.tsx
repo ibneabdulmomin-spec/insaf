@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -80,6 +80,7 @@ export default function App() {
   const [notices, setNotices] = useState<any[]>([]);
   const [galleryItems, setGalleryItems] = useState<any[]>([]);
   const [reportsList, setReportsList] = useState<any[]>([]);
+  const [personalReports, setPersonalReports] = useState<any[]>([]);
   const [messages, setMessages] = useState<any[]>([]);
   const [isFetchingReports, setIsFetchingReports] = useState(false);
   const [isFetchingNotices, setIsFetchingNotices] = useState(false);
@@ -97,8 +98,25 @@ export default function App() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+  
+  // Onboarding
+  const [username, setUsername] = useState<string>('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Firestore Site Content Listener
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('insaf_username');
+    if (!savedUsername) {
+      setShowOnboarding(true);
+    } else {
+      setUsername(savedUsername);
+    }
+  }, []);
+
+  const saveUsername = (name: string) => {
+    localStorage.setItem('insaf_username', name);
+    setUsername(name);
+    setShowOnboarding(false);
+  };
   useEffect(() => {
     const contentDocRef = doc(db, 'settings', 'site_content');
     const unsubscribe = onSnapshot(contentDocRef, (docSnap) => {
@@ -452,6 +470,17 @@ export default function App() {
     }
   };
 
+  const updateUserCode = async (userId: string, code: string) => {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { shareholderCode: code });
+      setUsersList(prev => prev.map(u => u.id === userId ? { ...u, shareholderCode: code } : u));
+      showToast("শেয়ারহোল্ডার কোড আপডেট হয়েছে!", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
   const deleteGalleryItem = async (id: string) => {
     try {
       // Implementation of deletion
@@ -474,6 +503,52 @@ export default function App() {
        setIsFetchingMessages(false);
     }
   };
+
+  // Real-time listener for current user's profile and reports
+  useEffect(() => {
+    if (!user) {
+      setPersonalReports([]);
+      return;
+    }
+
+    // Listen to user profile for real-time updates (like being disabled or role change)
+    const userRef = doc(db, 'users', user.uid);
+    const unsubProfile = onSnapshot(userRef, (snap) => {
+       if (snap.exists()) {
+          const profile = snap.data();
+          setUserProfile(prev => ({ ...prev, ...profile }));
+          
+          if (profile.disabled) {
+             signOut(auth);
+             showToast("আপনার অ্যাকাউন্টটি লক করা হয়েছে", "error");
+          }
+       }
+    });
+
+    return () => unsubProfile();
+  }, [user]);
+
+  // Real-time listener for user's personal reports based on their shareholderCode
+  useEffect(() => {
+    if (!userProfile?.shareholderCode) {
+      setPersonalReports([]);
+      return;
+    }
+
+    const reportQuery = query(
+      collection(db, 'reports'),
+      where('shareholderCode', '==', userProfile.shareholderCode)
+    );
+
+    const unsubReports = onSnapshot(reportQuery, (snap) => {
+      const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPersonalReports(list.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    }, (error) => {
+      console.error("Personal Reports Error:", error);
+    });
+
+    return () => unsubReports();
+  }, [userProfile?.shareholderCode]);
 
   const normalizeWhatsAppNumber = (num: string) => {
     let cleaned = num.replace(/[^0-9]/g, '');
@@ -880,10 +955,16 @@ export default function App() {
                         <span className="text-sm font-bold">রিপোর্ট সার্চ</span>
                       </button>
                       {userProfile && (
-                        <button onClick={() => { openModal('members-directory'); setIsMoreMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
-                          <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center"><Users size={18} /></div>
-                          <span className="text-sm font-bold">মেম্বার ডিরেক্টরি</span>
-                        </button>
+                        <>
+                          <button onClick={() => { openModal('members-directory'); setIsMoreMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            <div className="w-8 h-8 rounded-lg bg-[#D4AF37]/10 text-[#D4AF37] flex items-center justify-center"><Users size={18} /></div>
+                            <span className="text-sm font-bold">মেম্বার ডিরেক্টরি</span>
+                          </button>
+                          <button onClick={() => { openModal('my-account'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
+                            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center"><User size={18} /></div>
+                            <span className="text-sm font-bold">আমার ড্যাশবোর্ড</span>
+                          </button>
+                        </>
                       )}
                       {userProfile?.role === 'admin' && (
                         <button onClick={() => { openAdminModal(); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-700 text-gray-200' : 'hover:bg-gray-50 text-gray-700'}`}>
@@ -942,7 +1023,10 @@ export default function App() {
                     <p className={`text-[11px] leading-relaxed mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>আপনার প্রিমিয়াম রিপোর্ট দেখতে এখানে ক্লিক করুন।</p>
                     <button onClick={() => { openModal('reports-search'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><Search size={20} className="text-[#D4AF37]" /><span className="font-medium">রিপোর্ট সার্চ</span></button>
                     {userProfile && (
-                       <button onClick={() => { openModal('members-directory'); setIsMobileMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><Users size={20} className="text-blue-500" /><span className="font-medium">মেম্বার ডিরেক্টরি</span></button>
+                       <>
+                         <button onClick={() => { openModal('members-directory'); setIsMobileMenuOpen(false); fetchUsers(); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><Users size={20} className="text-blue-500" /><span className="font-medium">মেম্বার ডিরেক্টরি</span></button>
+                         <button onClick={() => { openModal('my-account'); setIsMobileMenuOpen(false); }} className={`w-full flex items-center gap-3 py-2 transition-colors ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}><User size={20} className="text-emerald-600" /><span className="font-medium">আমার ড্যাশবোর্ড</span></button>
+                       </>
                     )}
                   </div>
                 <button onClick={() => { openModal('join'); setIsMobileMenuOpen(false); }} className="bg-[#064E3B] text-white px-5 py-3 rounded-lg text-center font-medium mt-2">যুক্ত হোন</button>
@@ -996,7 +1080,9 @@ export default function App() {
                   <img src={logo} alt="Al-Insaf Logo" className="w-full h-full object-contain scale-110" referrerPolicy="no-referrer" />
                 </div>
               </div>
-              <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">আল-ইনসাফ এ আপনাকে স্বাগতম</span>
+              <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">
+                {username ? `আসসালামু আলাইকুম, ${username}!` : "আল-ইনসাফ এ আপনাকে স্বাগতম"}
+              </span>
               <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6">নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span></h1>
               <p className="text-lg text-gray-200 max-w-2xl mx-auto mb-10 font-light leading-relaxed">স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ।</p>
               <div className="flex flex-col sm:flex-row items-center gap-4">
@@ -1552,11 +1638,25 @@ export default function App() {
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-3 justify-end shrink-0">
-                                    <div className="bg-gray-50 p-1.5 rounded-2xl flex items-center gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex flex-col gap-0.5">
+                                        <label className="text-[7px] font-bold text-gray-400 uppercase ml-1">কোড</label>
+                                        <input 
+                                          type="text" 
+                                          defaultValue={usr.shareholderCode || ''} 
+                                          onBlur={(e) => {
+                                            if (e.target.value !== (usr.shareholderCode || '')) {
+                                              updateUserCode(usr.id, e.target.value);
+                                            }
+                                          }}
+                                          placeholder="INS-101"
+                                          className="text-[9px] font-bold px-2 py-1 bg-white border border-gray-100 rounded-lg shadow-sm outline-none w-20"
+                                        />
+                                      </div>
                                       <select 
                                         value={usr.role || 'shareholder'} 
                                         onChange={(e) => updateUserRole(usr.id, e.target.value)}
-                                        className="text-[11px] font-bold p-2.5 bg-white border-none rounded-xl shadow-sm cursor-pointer outline-none focus:ring-1 ring-[#D4AF37]"
+                                        className="text-[11px] font-bold p-2.5 bg-white border-none rounded-xl shadow-sm cursor-pointer outline-none focus:ring-1 ring-[#D4AF37] h-10 self-end"
                                       >
                                         <option value="shareholder">শেয়ারহোল্ডার</option>
                                         <option value="employee">কর্মচারী</option>
@@ -1564,7 +1664,7 @@ export default function App() {
                                       </select>
                                       <button 
                                         onClick={() => toggleUserStatus(usr.id, usr.disabled)}
-                                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${usr.disabled ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-red-50 text-red-600 hover:bg-red-100'}`}
+                                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${usr.disabled ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200' : 'bg-red-50 text-red-600 hover:bg-red-100'} mt-auto`}
                                       >
                                         {usr.disabled ? <ShieldCheck size={20} /> : <Lock size={20} />}
                                       </button>
@@ -1808,6 +1908,59 @@ export default function App() {
                     <button onClick={closeModal} className="px-8 py-2.5 bg-[#064E3B] text-white font-bold rounded-2xl">বন্ধ করুন</button>
                   </div>
                 </div>
+              ) : activeModal === 'my-account' ? (
+                <div className="p-8">
+                  <div className="flex justify-between items-center mb-8">
+                    <div>
+                      <h2 className="font-serif text-2xl font-bold text-[#064E3B]">আমার ড্যাশবোর্ড</h2>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Personal reports & account details</p>
+                    </div>
+                    <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">আপনার কোড</p>
+                       <h3 className="text-2xl font-serif font-bold text-[#064E3B]">{userProfile?.shareholderCode || 'নির্ধারিত হয়নি'}</h3>
+                    </div>
+                    <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 shadow-inner">
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">মোট জমা (৳)</p>
+                       <h3 className="text-2xl font-serif font-bold text-emerald-600">
+                          {personalReports.reduce((acc, curr) => acc + (curr.amount || 0), 0)}
+                       </h3>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-[#064E3B] text-sm flex items-center gap-2">
+                       <Activity size={16} className="text-[#D4AF37]" /> সাম্প্রতিক পেমেন্ট হিস্ট্রি
+                    </h4>
+                    <div className="space-y-3 max-h-[40vh] overflow-y-auto no-scrollbar pr-1">
+                       {personalReports.length === 0 && (
+                         <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border border-dashed border-gray-200">
+                           <FileX size={40} className="mx-auto text-gray-200 mb-2" />
+                           <p className="text-gray-400 italic">এখনও কোন রিপোর্ট পাওয়া যায়নি</p>
+                         </div>
+                       )}
+                       {personalReports.map((r: any) => (
+                         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} key={r.id} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm flex justify-between items-center group hover:border-[#D4AF37]/30 transition-all">
+                           <div>
+                             <p className="font-bold text-[#064E3B]">{r.month}</p>
+                             <p className="text-[9px] text-gray-400 font-bold uppercase">{new Date(r.timestamp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                           </div>
+                           <div className="text-right">
+                             <p className="text-lg font-bold text-emerald-600">৳{r.amount}</p>
+                             {r.premiumAmount > 0 && <p className="text-[8px] text-amber-600 font-bold uppercase tracking-tight">প্রিমিয়াম: ৳{r.premiumAmount}</p>}
+                           </div>
+                         </motion.div>
+                       ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-6 border-t flex justify-end">
+                    <button onClick={closeModal} className="px-10 py-2.5 bg-[#064E3B] text-white font-bold rounded-2xl shadow-lg border border-[#064E3B]/20 hover:bg-black transition-all">বন্ধ করুন</button>
+                  </div>
+                </div>
               ) : activeModal === 'reports-search' ? (
                 <div className="p-8">
                   <div className="flex justify-between items-center mb-8">
@@ -1899,6 +2052,16 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {showOnboarding && (
+        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl">
+            <h2 className="text-2xl font-bold text-[#064E3B] mb-6">আপনার নাম কি?</h2>
+            <input type="text" onChange={(e) => setUsername(e.target.value)} placeholder="নাম লিখুন" className="w-full p-4 mb-6 bg-gray-50 rounded-xl outline-none" />
+            <button onClick={() => saveUsername(username)} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-xl">সেভ করুন</button>
+          </motion.div>
+        </div>
+      )}
 
       {isLoginModalOpen && (
         <LoginModal onClose={() => setIsLoginModalOpen(false)} onLogin={handleCustomLogin} />

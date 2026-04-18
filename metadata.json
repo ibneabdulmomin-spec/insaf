@@ -1,6 +1,5 @@
 {
-  "name": "Al-Insaf Organization",
-  "description": "An ethical, transparent socio-economic platform for social impact and mutual cooperation.",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "name": "Shareholder Report Portal",
+  "description": "A portal for shareholders to view their financial reports secured by mobile number login, with an admin panel for report management.",
+  "requestFramePermissions": []
 }
