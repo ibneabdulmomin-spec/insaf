@@ -634,15 +634,37 @@ export default function App() {
          return;
       }
 
-      // Updated to requested headers: কোড, নাম, নাম্বার, মোট টাকা
-      const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+      // Updated to handle flexible headers and commas inside quotes
+      // Parse CSV correctly handling commas within quotes
+      const parseCSVRow = (row: string) => {
+        const result = [];
+        let inQuotes = false;
+        let currentValue = "";
+        for (let i = 0; i < row.length; i++) {
+          const char = row[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(currentValue.trim());
+            currentValue = "";
+          } else {
+            currentValue += char;
+          }
+        }
+        result.push(currentValue.trim());
+        return result.map(v => v.replace(/^"|"$/g, '')); // remove surrounding quotes
+      };
+
+      const headers = parseCSVRow(rows[0]).map(h => h.trim().toLowerCase());
+      
+      // More flexible matching, explicitly handling 'mobile' and 'total taka'
       const codeIdx = headers.findIndex(h => h.includes('code') || h.includes('কোড'));
       const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('নাম'));
-      const numberIdx = headers.findIndex(h => h.includes('number') || h.includes('নাম্বার'));
-      const amountIdx = headers.findIndex(h => h.includes('amount') || h.includes('টাকা') || h.includes('মোট'));
+      const numberIdx = headers.findIndex(h => h.includes('number') || h.includes('নাম্বার') || h.includes('mobile'));
+      const amountIdx = headers.findIndex(h => h.includes('amount') || h.includes('টাকা') || h.includes('মোট') || h.includes('taka'));
 
       if (codeIdx === -1 || nameIdx === -1 || numberIdx === -1 || amountIdx === -1) {
-         showToast("CSV ফরম্যাট ঠিক নেই। 'কোড', 'নাম', 'নাম্বার', 'মোট টাকা' কলাম থাকা আবশ্যক।", "error");
+         showToast("CSV ফরম্যাট ঠিক নেই। 'কোড', 'নাম', 'নাম্বার/mobile', 'মোট টাকা/total taka' কলাম থাকা আবশ্যক।", "error");
          return;
       }
 
@@ -653,21 +675,30 @@ export default function App() {
         let count = 0;
         
         for (let i = 1; i < rows.length; i++) {
-           const cols = rows[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-           if (cols.length < 4 || !cols[codeIdx]) continue;
+           const cols = parseCSVRow(rows[i]);
+           if (cols.length < Math.max(codeIdx, nameIdx, numberIdx, amountIdx) + 1) continue;
+           
+           const code = cols[codeIdx];
+           
+           // Skip empty code or summary rows like 'total'
+           if (!code || code.toLowerCase().includes('total') || code.toLowerCase().includes('সর্বমোট')) continue;
 
-           const amount = Number(cols[amountIdx].replace(/[^0-9.-]+/g,"")) || 0;
+           // Clean amount string (e.g. "24,427" -> 24427)
+           const amountStr = cols[amountIdx].replace(/,/g, '').replace(/[^0-9.-]+/g,"");
+           const amount = Number(amountStr) || 0;
+           
+           const nameRaw = cols[nameIdx] || '';
+           // Clean up the ? marks from names if present due to encoding issues
+           const name = nameRaw.replace(/\?/g, '').trim() || 'অজ্ঞাত';
 
-           // To keep backwards compatibility with the UI we store month as Name/Number context
-           // Or update the report generation to use 'name' and 'phoneNumber' directly.
            const newReportRef = doc(collection(db, 'reports'));
            batch.set(newReportRef, {
-              shareholderCode: cols[codeIdx] || '',
-              name: cols[nameIdx] || '',
+              shareholderCode: code,
+              name: name,
               phoneNumber: cols[numberIdx] || '',
-              month: new Date().toLocaleDateString('bn-BD', { month: 'long', year: 'numeric' }), // auto-set current month since it's not in CSV
+              month: new Date().toLocaleDateString('bn-BD', { month: 'long', year: 'numeric' }), 
               amount: amount,
-              premiumAmount: 0, // Not requested
+              premiumAmount: 0, 
               timestamp: new Date().toISOString()
            });
            count++;
