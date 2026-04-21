@@ -686,6 +686,7 @@ export default function App() {
   };
 
   const deleteAllReports = async () => {
+    console.log("Attempting to delete reports...");
     const code = window.prompt("আপনি কি সব রিপোর্ট ডিলিট করতে চান? নিশ্চিত করতে 'DELETE' লিখুন:");
     if (code !== 'DELETE') return;
     
@@ -693,15 +694,18 @@ export default function App() {
     try {
       const snap = await getDocs(collection(db, 'reports'));
       const docs = snap.docs;
+      console.log(`Found ${docs.length} reports.`);
       
       // Firestore batch limit is 500
       for (let i = 0; i < docs.length; i += 500) {
         const batch = writeBatch(db);
         const chunk = docs.slice(i, i + 500);
+        console.log(`Processing batch ${i / 500 + 1}, size: ${chunk.length}`);
         chunk.forEach(docSnap => {
           batch.delete(docSnap.ref);
         });
         await batch.commit();
+        console.log(`Batch ${i / 500 + 1} committed.`);
       }
       
       setReportsList([]);
@@ -709,6 +713,7 @@ export default function App() {
       setPersonalReports([]);
       showToast("সব রিপোর্ট সফলভাবে মুছে ফেলা হয়েছে", "success");
     } catch (error) {
+      console.error("Delete error:", error);
       handleFirestoreError(error, OperationType.DELETE, 'reports (batch)');
       showToast("সব রিপোর্ট মুছতে সমস্যা হয়েছে", "error");
     } finally {
@@ -1310,7 +1315,7 @@ export default function App() {
                 </div>
               </div>
               <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">
-                {userProfile ? `আসসালামু আলাইকুম, ${userProfile.displayName || 'আপনার'}!` : "আল-ইনসাফ এ আপনাকে স্বাগতম"}
+                আল-ইনসাফ এ আপনাকে স্বাগতম
               </span>
               <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6">নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span></h1>
               <p className="text-lg text-gray-200 max-w-2xl mx-auto mb-10 font-light leading-relaxed">স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ।</p>
