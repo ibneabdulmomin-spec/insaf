@@ -692,15 +692,25 @@ export default function App() {
     setIsFetchingReports(true);
     try {
       const snap = await getDocs(collection(db, 'reports'));
-      const batch = writeBatch(db);
-      snap.docs.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-      await batch.commit();
+      const docs = snap.docs;
+      
+      // Firestore batch limit is 500
+      for (let i = 0; i < docs.length; i += 500) {
+        const batch = writeBatch(db);
+        const chunk = docs.slice(i, i + 500);
+        chunk.forEach(docSnap => {
+          batch.delete(docSnap.ref);
+        });
+        await batch.commit();
+      }
+      
       setReportsList([]);
-      showToast("সব রিপোর্ট মুছে ফেলা হয়েছে", "success");
+      setSearchResult([]);
+      setPersonalReports([]);
+      showToast("সব রিপোর্ট সফলভাবে মুছে ফেলা হয়েছে", "success");
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'reports (batch)');
+      showToast("সব রিপোর্ট মুছতে সমস্যা হয়েছে", "error");
     } finally {
       setIsFetchingReports(false);
     }
@@ -757,15 +767,19 @@ export default function App() {
          return;
       }
 
-      // Map headers to indices
+      // Map headers
       const headers = Object.keys(jsonData[0]);
-      const codeIdx = headers.findIndex(h => h.includes('code') || h.includes('কোড'));
-      const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('নাম'));
-      const numberIdx = headers.findIndex(h => h.includes('number') || h.includes('নাম্বার') || h.includes('mobile'));
-      const amountIdx = headers.findIndex(h => h.includes('amount') || h.includes('টাকা') || h.includes('মোট') || h.includes('taka'));
+      console.log("Detected headers:", headers);
+      
+      const codeIdx = headers.findIndex(h => h.toLowerCase().includes('code') || h.toLowerCase().includes('কোড'));
+      const nameIdx = headers.findIndex(h => h.toLowerCase().includes('name') || h.toLowerCase().includes('নাম'));
+      const numberIdx = headers.findIndex(h => h.toLowerCase().includes('number') || h.toLowerCase().includes('নাম্বার') || h.toLowerCase().includes('mobile'));
+      const amountIdx = headers.findIndex(h => h.toLowerCase().includes('amount') || h.toLowerCase().includes('টাকা') || h.toLowerCase().includes('মোট') || h.toLowerCase().includes('taka'));
+
+      console.log("Indexes:", {codeIdx, nameIdx, numberIdx, amountIdx});
 
       if (codeIdx === -1 || nameIdx === -1 || numberIdx === -1 || amountIdx === -1) {
-         showToast("ফরম্যাট ঠিক নেই। 'কোড', 'নাম', 'নাম্বার', 'মোট টাকা' কলাম থাকা আবশ্যক।", "error");
+         showToast(`ফরম্যাট ঠিক নেই। যে কলামগুলো পাওয়া যায়নি: ${codeIdx === -1 ? 'কোড ' : ''}${nameIdx === -1 ? 'নাম ' : ''}${numberIdx === -1 ? 'নাম্বার ' : ''}${amountIdx === -1 ? 'মোট টাকা ' : ''}`, "error");
          return;
       }
 
@@ -841,6 +855,31 @@ export default function App() {
     } else {
        reader.readAsBinaryString(file);
     }
+  };
+
+  const generateCertificatePDF = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    
+    // Simple basic certificate design
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(30);
+    doc.text("Certificate of Membership", 148, 50, { align: "center" });
+    
+    doc.setFontSize(16);
+    doc.setFont("Helvetica", "normal");
+    doc.text("This is to certify that", 148, 80, { align: "center" });
+    
+    doc.setFontSize(24);
+    doc.setFont("Helvetica", "bold");
+    doc.text(userProfile?.displayName || "Member Name", 148, 100, { align: "center" });
+    
+    doc.setFontSize(16);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Shareholder Code: ${userProfile?.shareholderCode || 'N/A'}`, 148, 120, { align: "center" });
+    
+    doc.text("has successfully joined Al-Insaf Organization.", 148, 140, { align: "center" });
+    
+    doc.save("Al-Insaf-Certificate.pdf");
   };
 
   const searchReport = async () => {
@@ -1276,7 +1315,9 @@ export default function App() {
               <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6">নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span></h1>
               <p className="text-lg text-gray-200 max-w-2xl mx-auto mb-10 font-light leading-relaxed">স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ।</p>
               <div className="flex flex-col sm:flex-row items-center gap-4">
-                <button onClick={() => openModal('join')} className="bg-[#D4AF37] text-[#064E3B] px-8 py-4 rounded-full font-bold text-lg hover:bg-white transition-all transform hover:-translate-y-1 w-full sm:w-auto">সদস্য হোন</button>
+                {(siteContent?.showJoinButton ?? true) && (
+                  <button onClick={() => openModal('join')} className="bg-[#D4AF37] text-[#064E3B] px-8 py-4 rounded-full font-bold text-lg hover:bg-white transition-all transform hover:-translate-y-1 w-full sm:w-auto">সদস্য হোন</button>
+                )}
                 <div className="bg-white/10 backdrop-blur-md border border-white/20 px-6 py-4 rounded-full flex items-center gap-3 shadow-lg w-full sm:w-auto">
                   <div className="w-10 h-10 bg-[#D4AF37] rounded-full flex items-center justify-center text-[#064E3B]"><Users size={20} /></div>
                   <div className="text-left"><p className="text-xs text-gray-300 uppercase font-bold tracking-wider">আমাদের পরিবার</p><p className="text-lg font-bold text-white">{siteContent?.memberCount || "২০০+"} সদস্য</p></div>
@@ -1731,6 +1772,10 @@ export default function App() {
                               <div className="space-y-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                                 <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">মেম্বার সংখ্যা লেবেল</label><input value={editData.memberCount || ""} onChange={(e) => setEditData({...editData, memberCount: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm font-serif" /></div>
                                 <div className="space-y-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">রিপোর্ট লিঙ্ক</label><input value={editData.reportUrl || ""} onChange={(e) => setEditData({...editData, reportUrl: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm" /></div>
+                                <div className="flex items-center gap-2">
+                                  <input type="checkbox" checked={editData.showJoinButton ?? true} onChange={(e) => setEditData({...editData, showJoinButton: e.target.checked})} id="showJoinButton" className="accent-[#064E3B]" />
+                                  <label htmlFor="showJoinButton" className="text-xs font-bold text-[#064E3B]">সদস্য হোন বাটন প্রদর্শন করুন</label>
+                                </div>
                                 <button 
                                   onClick={handleSaveContent} 
                                   className={`w-full py-4 text-white font-bold rounded-xl mt-4 shadow-lg transition-all ${saveSuccess ? 'bg-green-500 shadow-green-100' : 'bg-[#064E3B] shadow-emerald-100'}`}
@@ -2161,6 +2206,10 @@ export default function App() {
                            </h3>
                         </div>
                       </div>
+                      
+                      <button onClick={generateCertificatePDF} className="w-full mb-8 bg-[#D4AF37] text-[#064E3B] font-bold py-4 rounded-2xl hover:bg-[#D4AF37]/90 transition-all shadow-md">
+                        সদস্যত্বের সার্টিফিকেট ডাউনলোড করুন
+                      </button>
 
                       <div className="space-y-4">
                         <h4 className="font-bold text-[#064E3B] text-sm flex items-center gap-2">
@@ -2211,22 +2260,10 @@ export default function App() {
                 <div className="p-8 flex flex-col h-full">
                   <div className="flex justify-between items-center mb-6">
                     <div>
-                      <h2 className="font-serif text-2xl font-bold text-[#064E3B]">রিপোর্ট সার্চ</h2>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Search payments by code</p>
+                      <h2 className="font-serif text-2xl font-bold text-[#064E3B]">রিপোর্ট</h2>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">Official Reports</p>
                     </div>
                     <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
-                  </div>
-                  
-                  <div className="flex gap-3 mb-6 shrink-0">
-                    <input 
-                      type="text" 
-                      value={reportSearchCode} 
-                      onChange={(e) => setReportSearchCode(e.target.value)} 
-                      onKeyPress={(e) => e.key === 'Enter' && searchReport()}
-                      placeholder="শেয়ারহোল্ডার কোড (যেমন: INS-101)" 
-                      className="flex-1 p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 ring-[#D4AF37]/30 font-bold"
-                    />
-                    <button onClick={searchReport} className="px-6 bg-[#D4AF37] text-[#064E3B] font-bold rounded-2xl hover:bg-[#D4AF37]/90 transition-all shadow-lg active:scale-95"><Search size={20} /></button>
                   </div>
                   
                   {/* External Report Link Button */}
@@ -2234,12 +2271,13 @@ export default function App() {
                     href="https://tinyurl.com/al-insafreport" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="w-full mb-6 flex items-center justify-center gap-2 p-4 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all text-sm"
+                    className="w-full mb-6 flex items-center justify-center gap-2 p-6 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all text-lg shadow-lg"
                   >
-                     অফিসিয়াল রিপোর্টস দেখুন <ExternalLink size={18} />
+                     অফিসিয়াল রিপোর্টস দেখুন <ExternalLink size={20} />
                   </a>
 
-                  <div id="search-report-pdf-content" className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4 bg-white">
+                  <div id="search-report-pdf-content" className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4">
+
                     {isFetchingReports ? (
                       <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
                     ) : (
