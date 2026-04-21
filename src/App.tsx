@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX, Download, Upload } from 'lucide-react';
 import { LoginModal } from './components/LoginModal';
 import { Footer } from './components/Footer';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import QRCode from 'react-qr-code';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signInAnonymously, signOut, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, getDocFromServer, collection, getDocs, updateDoc, query, where, writeBatch, deleteDoc } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -96,6 +97,50 @@ export default function App() {
   const [reportSearchCode, setReportSearchCode] = useState('');
   const [searchResult, setSearchResult] = useState<any[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  const analyticsData = useMemo(() => {
+    const monthlyData: Record<string, { monthDate: Date; displayMonth: string; amount: number; count: number; premium: number }> = {};
+    
+    // Default months if no reports exist to show meaningful chart structure
+    const currentDate = new Date();
+    for (let i = 5; i >= 0; i--) {
+       const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+       const key = `${d.getFullYear()}-${d.getMonth()}`;
+       monthlyData[key] = {
+         monthDate: d,
+         displayMonth: d.toLocaleDateString('bn-BD', { month: 'short', year: 'numeric' }),
+         amount: 0, count: 0, premium: 0
+       };
+    }
+
+    reportsList.forEach(report => {
+      const date = new Date(report.timestamp);
+      const isValidDate = !isNaN(date.getTime());
+      
+      const monthKey = isValidDate ? `${date.getFullYear()}-${date.getMonth()}` : '0-0';
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { 
+          monthDate: isValidDate ? new Date(date.getFullYear(), date.getMonth(), 1) : new Date(0), 
+          displayMonth: isValidDate ? date.toLocaleDateString('bn-BD', { month: 'short', year: 'numeric' }) : (report.month || 'Other'),
+          amount: 0, 
+          count: 0,
+          premium: 0
+        };
+      }
+      monthlyData[monthKey].amount += Number(report.amount) || 0;
+      monthlyData[monthKey].premium += Number(report.premiumAmount) || 0;
+      monthlyData[monthKey].count += 1;
+    });
+
+    return Object.values(monthlyData)
+      .sort((a, b) => a.monthDate.getTime() - b.monthDate.getTime())
+      .map(data => ({
+        name: data.displayMonth,
+        'মোট জমা': data.amount,
+        'রিপোর্ট সংখ্যা': data.count,
+        'প্রিমিয়াম': data.premium
+      }));
+  }, [reportsList]);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
@@ -602,8 +647,14 @@ export default function App() {
 
   const addReport = async (report: any) => {
     try {
+      if (!report.shareholderCode || report.amount === 0) {
+        showToast("দয়া করে কোড এবং পরিমাণ দিন", "error");
+        return;
+      }
       await setDoc(doc(collection(db, 'reports')), { ...report, timestamp: new Date().toISOString() });
       showToast("রিপোর্ট সফলভাবে জমা হয়েছে!", "success");
+      setReportForm({ shareholderCode: '', month: '', amount: 0, premiumAmount: 0 });
+      fetchReports();
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'reports');
     }
@@ -621,93 +672,159 @@ export default function App() {
     }
   };
 
-  const handleCSVUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const deleteReport = async (id: string) => {
+    if (!window.confirm("আপনি কি এই রিপোর্টটি মুছে ফেলতে চান?")) return;
+    try {
+      await deleteDoc(doc(db, 'reports', id));
+      setReportsList(prev => prev.filter(r => r.id !== id));
+      setSearchResult(prev => prev.filter(r => r.id !== id));
+      setPersonalReports(prev => prev.filter(r => r.id !== id));
+      showToast("রিপোর্টটি সফলভাবে মুছে ফেলা হয়েছে", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'reports/' + id);
+    }
+  };
+
+  const deleteAllReports = async () => {
+    const code = window.prompt("আপনি কি সব রিপোর্ট ডিলিট করতে চান? নিশ্চিত করতে 'DELETE' লিখুন:");
+    if (code !== 'DELETE') return;
+    
+    setIsFetchingReports(true);
+    try {
+      const snap = await getDocs(collection(db, 'reports'));
+      const batch = writeBatch(db);
+      snap.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+      setReportsList([]);
+      showToast("সব রিপোর্ট মুছে ফেলা হয়েছে", "success");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'reports (batch)');
+    } finally {
+      setIsFetchingReports(false);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
+    reader.onerror = (e) => {
+       showToast("ফাইল পড়তে সমস্যা হয়েছে", "error");
+       console.error("FileReader Error:", e);
+    };
     reader.onload = async (e) => {
-      const text = e.target?.result as string;
-      const rows = text.split('\n').map(row => row.trim()).filter(row => row !== '');
-      if (rows.length < 2) {
-         showToast("CSV ফাইলে কোনো ডাটা নেই", "error");
+      const data = e.target?.result;
+      let workbook;
+      let jsonData: any[];
+
+      try {
+        if (file.name.endsWith('.csv')) {
+           const decoder = new TextDecoder('utf-8');
+           let text = decoder.decode(data as ArrayBuffer);
+           // Simple CSV parser fallback
+           const rows = text.split(/\r?\n/).filter(row => row.trim() !== '');
+           const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+           jsonData = rows.slice(1).map(row => {
+             const values = row.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+             let obj: any = {};
+             headers.forEach((h, i) => obj[h] = values[i]);
+             return obj;
+           });
+        } else {
+           // Excel (XLSX/XLS)
+           workbook = XLSX.read(data, { type: 'binary' });
+           const sheetName = workbook.SheetNames[0];
+           jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1 });
+           
+           // Convert array of arrays to array of objects
+           const headers = (jsonData[0] as string[]).map(h => String(h).trim().toLowerCase());
+           jsonData = jsonData.slice(1).map(row => {
+             let obj: any = {};
+             headers.forEach((h, i) => obj[h] = row[i]);
+             return obj;
+           });
+        }
+      } catch (err) {
+        showToast("ফাইল পার্স করতে সমস্যা হয়েছে", "error");
+        return;
+      }
+
+      if (jsonData.length === 0) {
+         showToast("ফাইলে কোনো ডাটা পাওয়া যায়নি", "error");
          return;
       }
 
-      // Updated to handle flexible headers and commas inside quotes
-      // Parse CSV correctly handling commas within quotes
-      const parseCSVRow = (row: string) => {
-        const result = [];
-        let inQuotes = false;
-        let currentValue = "";
-        for (let i = 0; i < row.length; i++) {
-          const char = row[i];
-          if (char === '"') {
-            inQuotes = !inQuotes;
-          } else if (char === ',' && !inQuotes) {
-            result.push(currentValue.trim());
-            currentValue = "";
-          } else {
-            currentValue += char;
-          }
-        }
-        result.push(currentValue.trim());
-        return result.map(v => v.replace(/^"|"$/g, '')); // remove surrounding quotes
-      };
-
-      const headers = parseCSVRow(rows[0]).map(h => h.trim().toLowerCase());
-      
-      // More flexible matching, explicitly handling 'mobile' and 'total taka'
+      // Map headers to indices
+      const headers = Object.keys(jsonData[0]);
       const codeIdx = headers.findIndex(h => h.includes('code') || h.includes('কোড'));
       const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('নাম'));
       const numberIdx = headers.findIndex(h => h.includes('number') || h.includes('নাম্বার') || h.includes('mobile'));
       const amountIdx = headers.findIndex(h => h.includes('amount') || h.includes('টাকা') || h.includes('মোট') || h.includes('taka'));
 
       if (codeIdx === -1 || nameIdx === -1 || numberIdx === -1 || amountIdx === -1) {
-         showToast("CSV ফরম্যাট ঠিক নেই। 'কোড', 'নাম', 'নাম্বার/mobile', 'মোট টাকা/total taka' কলাম থাকা আবশ্যক।", "error");
+         showToast("ফরম্যাট ঠিক নেই। 'কোড', 'নাম', 'নাম্বার', 'মোট টাকা' কলাম থাকা আবশ্যক।", "error");
          return;
       }
 
-      showToast("আপলোড শুরু হয়েছে, দয়া করে অপেক্ষা করুন...", "info");
+      showToast("আপলোড শুরু হয়েছে...", "info");
       
       try {
+        const existingSnap = await getDocs(collection(db, 'reports'));
+        const existingKeys = new Set(existingSnap.docs.map(doc => {
+          const d = doc.data();
+          return `${d.shareholderCode}_${d.amount}_${d.name || d.month}`;
+        }));
+
         const batch = writeBatch(db);
         let count = 0;
+        let duplicateCount = 0;
         
-        for (let i = 1; i < rows.length; i++) {
-           const cols = parseCSVRow(rows[i]);
-           if (cols.length < Math.max(codeIdx, nameIdx, numberIdx, amountIdx) + 1) continue;
+        for (const row of jsonData) {
+           const rowValues = Object.values(row as object);
+           const code = rowValues[codeIdx];
+           const amountVal = rowValues[amountIdx];
            
-           const code = cols[codeIdx];
-           
-           // Skip empty code or summary rows like 'total'
-           if (!code || code.toLowerCase().includes('total') || code.toLowerCase().includes('সর্বমোট')) continue;
+           if (!code || String(code).toLowerCase().includes('total')) continue;
 
-           // Clean amount string (e.g. "24,427" -> 24427)
-           const amountStr = cols[amountIdx].replace(/,/g, '').replace(/[^0-9.-]+/g,"");
+           const amountStr = String(amountVal).replace(/,/g, '').replace(/[^0-9.-]+/g,"");
            const amount = Number(amountStr) || 0;
            
-           const nameRaw = cols[nameIdx] || '';
-           // Clean up the ? marks from names if present due to encoding issues
-           const name = nameRaw.replace(/\?/g, '').trim() || 'অজ্ঞাত';
+           const name = String(rowValues[nameIdx] || 'অজ্ঞাত').trim();
+           const month = new Date().toLocaleDateString('bn-BD', { month: 'long', year: 'numeric' });
+
+           const key = `${code}_${amount}_${name}`;
+           if (existingKeys.has(key)) {
+              duplicateCount++;
+              continue;
+           }
 
            const newReportRef = doc(collection(db, 'reports'));
            batch.set(newReportRef, {
-              shareholderCode: code,
+              shareholderCode: String(code),
               name: name,
-              phoneNumber: cols[numberIdx] || '',
-              month: new Date().toLocaleDateString('bn-BD', { month: 'long', year: 'numeric' }), 
+              phoneNumber: String(rowValues[numberIdx] || ''),
+              month: month, 
               amount: amount,
               premiumAmount: 0, 
               timestamp: new Date().toISOString()
            });
            count++;
+           existingKeys.add(key);
+
+           if (count > 0 && count % 450 === 0) {
+             await batch.commit();
+           }
         }
         
         if (count > 0) {
            await batch.commit();
-           showToast(`${count} টি রিপোর্ট সফলভাবে আপলোড হয়েছে!`, "success");
+           showToast(`${count} টি রিপোর্ট সফলভাবে আপলোড হয়েছে! ${duplicateCount > 0 ? `(${duplicateCount} টি ডুপ্লিকেট বাদ দেওয়া হয়েছে)` : ''}`, "success");
            fetchReports();
+        } else if (duplicateCount > 0) {
+           showToast("সবগুলো রিপোর্টই আগে থেকে সিস্টেমে আছে (ডুপ্লিকেট)।", "info");
         } else {
            showToast("আপলোড করার মত কোনো ডাটা পাওয়া যায়নি।", "error");
         }
@@ -715,10 +832,15 @@ export default function App() {
         handleFirestoreError(error, OperationType.WRITE, 'reports (batch)');
         showToast("আপলোড করতে সমস্যা হয়েছে", "error");
       } finally {
-        event.target.value = ''; // Reset input
+        event.target.value = '';
       }
     };
-    reader.readAsText(file);
+    
+    if (file.name.endsWith('.csv')) {
+       reader.readAsArrayBuffer(file);
+    } else {
+       reader.readAsBinaryString(file);
+    }
   };
 
   const searchReport = async () => {
@@ -1054,7 +1176,49 @@ export default function App() {
               </button>
               
               <AnimatePresence>
-                {/* Replaced desktop dropdown with modal-based mobile menu style trigger */}
+                {isMoreMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className={`absolute right-0 mt-3 w-64 rounded-2xl shadow-xl overflow-hidden border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-100'}`}
+                  >
+                    <div className="p-2 space-y-1">
+                      {userProfile ? (
+                        <>
+                          <div className={`px-4 py-3 mb-2 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-100'}`}>
+                            <p className={`font-bold ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>{userProfile.displayName || 'User'}</p>
+                            <p className="text-xs text-gray-500">{userProfile.email}</p>
+                          </div>
+                          <button onClick={() => { openModal('my-account'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                            <User size={18} className="text-[#D4AF37]" /> ড্যাশবোর্ড
+                          </button>
+                          <button onClick={() => { openModal('reports-search'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                            <Search size={18} className="text-emerald-500" /> রিপোর্ট সার্চ
+                          </button>
+                          {userProfile.role === 'admin' && (
+                            <button onClick={() => { openAdminModal(); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                              <Settings size={18} className="text-orange-500" /> অ্যাডমিন
+                            </button>
+                          )}
+                          <button onClick={() => { handleLogout(); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${isDarkMode ? 'text-red-400 hover:bg-gray-700' : 'text-red-600 hover:bg-red-50 mt-2'}`}>
+                            <LogOut size={18} /> লগআউট
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => { openModal('reports-search'); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-gray-600 hover:bg-gray-50'}`}>
+                            <Search size={18} className="text-emerald-500" /> রিপোর্ট সার্চ
+                          </button>
+                          <button onClick={() => { handleLogin(); setIsMoreMenuOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors ${isDarkMode ? 'text-gray-300 hover:bg-gray-700' : 'text-[#064E3B] hover:bg-gray-50'}`}>
+                            <LogIn size={18} className="text-[#D4AF37]" /> লগইন
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
               </AnimatePresence>
             </div>
 
@@ -1452,46 +1616,70 @@ export default function App() {
                               <div className="space-y-4">
                                 <div className="flex justify-between items-center p-4 bg-green-50 rounded-2xl">
                                   <div>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase">মোট ফান্ড (আনুমানিক)</p>
-                                    <h3 className="text-xl font-bold text-green-700">৳ ৫,০০,০০০</h3>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase">মোট ফান্ড সাবমিশন</p>
+                                    <h3 className="text-xl font-bold text-green-700">৳ {reportsList.reduce((sum, r) => sum + (Number(r.amount) || 0) + (Number(r.premiumAmount) || 0), 0).toLocaleString('bn-BD')}</h3>
                                   </div>
                                   <div className="w-10 h-10 bg-green-200 text-green-700 rounded-full flex items-center justify-center"><Activity size={18}/></div>
                                 </div>
                                 <div className="flex justify-between items-center p-4 bg-blue-50 rounded-2xl">
                                   <div>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase">চলতি মাসের সংগ্রহ</p>
-                                    <h3 className="text-xl font-bold text-blue-700">৳ ৪৫,০০০</h3>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase">মোট প্রিমিয়াম</p>
+                                    <h3 className="text-xl font-bold text-blue-700">৳ {reportsList.reduce((sum, r) => sum + (Number(r.premiumAmount) || 0), 0).toLocaleString('bn-BD')}</h3>
                                   </div>
                                   <div className="w-10 h-10 bg-blue-200 text-blue-700 rounded-full flex items-center justify-center"><PieChart size={18}/></div>
                                 </div>
                                 <div className="flex justify-between items-center p-4 bg-amber-50 rounded-2xl">
                                   <div>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase">বকেয়া পেমেন্ট (আনুমানিক)</p>
-                                    <h3 className="text-xl font-bold text-amber-700">৳ ১২,০০০</h3>
+                                    <p className="text-[10px] font-bold text-gray-500 uppercase">মোট রিপোর্ট এন্ট্রি</p>
+                                    <h3 className="text-xl font-bold text-amber-700">{reportsList.length} টি</h3>
                                   </div>
-                                  <div className="w-10 h-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center"><Info size={18}/></div>
+                                  <div className="w-10 h-10 bg-amber-200 text-amber-700 rounded-full flex items-center justify-center"><FileText size={18}/></div>
                                 </div>
                               </div>
                             </div>
                             <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
-                              <h4 className="font-bold text-[#064E3B] mb-4 flex items-center gap-2 text-sm"><Activity size={16} className="text-[#D4AF37]" /> রিটেইল ট্রানজেকশন (Mock)</h4>
+                              <h4 className="font-bold text-[#064E3B] mb-4 flex items-center gap-2 text-sm"><PieChart size={16} className="text-[#D4AF37]" /> রিপোর্ট এমাউন্ট ট্রেন্ড</h4>
                               <div className="flex-1 flex justify-center items-center h-48 py-4">
-                               <ResponsiveContainer width="100%" height="100%">
-                                   <BarChart data={[
-                                    { name: 'জানু', amount: 40000 },
-                                    { name: 'ফেব্রু', amount: 30000 },
-                                    { name: 'মার্চ', amount: 45000 },
-                                    { name: 'এপ্রিল', amount: 25000 },
-                                  ]}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
-                                    <YAxis hide />
-                                    <Tooltip cursor={{ fill: '#f8f9fa' }} contentStyle={{ borderRadius: '12px', border: 'none', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} barSize={25} fill="#D4AF37" />
-                                  </BarChart>
-                                </ResponsiveContainer>
+                               {analyticsData && analyticsData.length > 0 ? (
+                                 <ResponsiveContainer width="100%" height="100%">
+                                   <AreaChart data={analyticsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                     <defs>
+                                       <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
+                                         <stop offset="5%" stopColor="#064E3B" stopOpacity={0.3}/>
+                                         <stop offset="95%" stopColor="#064E3B" stopOpacity={0}/>
+                                       </linearGradient>
+                                     </defs>
+                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                     <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
+                                     <YAxis axisLine={false} tickLine={false} style={{ fontSize: '10px' }} tickFormatter={(val) => `৳${val}`} />
+                                     <Tooltip cursor={{ stroke: '#D4AF37', strokeWidth: 1, strokeDasharray: '4 4' }} contentStyle={{ borderRadius: '12px', border: 'none', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                     <Area type="monotone" dataKey="মোট জমা" stroke="#064E3B" strokeWidth={3} fillOpacity={1} fill="url(#colorAmount)" />
+                                   </AreaChart>
+                                 </ResponsiveContainer>
+                               ) : (
+                                 <p className="text-sm text-gray-400 italic">কোন ডেটা পাওয়া যায়নি</p>
+                               )}
                               </div>
                             </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col">
+                          <h4 className="font-bold text-[#064E3B] mb-4 flex items-center gap-2 text-sm"><Activity size={16} className="text-[#D4AF37]" /> মাসিক রিপোর্ট সাবমিশন</h4>
+                          <div className="flex-1 flex justify-center items-center h-64 py-4 mt-2">
+                           {analyticsData && analyticsData.length > 0 ? (
+                             <ResponsiveContainer width="100%" height="100%">
+                               <BarChart data={analyticsData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                 <XAxis dataKey="name" axisLine={false} tickLine={false} style={{ fontSize: '10px' }} />
+                                 <YAxis hide />
+                                 <Tooltip cursor={{ fill: '#f8f9fa' }} contentStyle={{ borderRadius: '12px', border: 'none', fontSize: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                 <Bar dataKey="রিপোর্ট সংখ্যা" radius={[6, 6, 0, 0]} barSize={35} fill="#D4AF37" />
+                               </BarChart>
+                             </ResponsiveContainer>
+                           ) : (
+                             <p className="text-sm text-gray-400 italic">কোন ডেটা পাওয়া যায়নি</p>
+                           )}
+                          </div>
                         </div>
 
                         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
@@ -1735,9 +1923,9 @@ export default function App() {
                             
                             <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-emerald-100 bg-emerald-50/30 rounded-2xl p-6 mb-6">
                                <Upload size={40} className="text-[#D4AF37] mb-4" />
-                               <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" id="csv-upload" />
+                               <input type="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" onChange={handleFileUpload} className="hidden" id="csv-upload" />
                                <label htmlFor="csv-upload" className="cursor-pointer px-6 py-2.5 bg-white border border-[#D4AF37]/30 text-[#064E3B] font-bold rounded-xl hover:bg-[#D4AF37]/10 transition-all shadow-sm">
-                                  ফাইন্ড CSV ফাইল
+                                  ফাইল সিলেক্ট করুন
                                </label>
                             </div>
 
@@ -1756,7 +1944,12 @@ export default function App() {
                         <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
                            <div className="flex justify-between items-center mb-4">
                               <h3 className="font-serif font-bold text-lg text-[#064E3B]">সাম্প্রতিক রিপোর্টসমূহ</h3>
-                              <button onClick={fetchReports} className="p-2 text-[#D4AF37] hover:bg-gray-50 rounded-xl transition-all"><Activity size={18} /></button>
+                              <div className="flex items-center gap-2">
+                                 <button onClick={fetchReports} className="p-2 text-[#D4AF37] hover:bg-gray-50 rounded-xl transition-all" title="রিফ্রেশ"><Activity size={18} /></button>
+                                 <button onClick={deleteAllReports} className="px-3 py-1.5 text-xs font-bold text-red-500 bg-red-50 hover:bg-red-100 rounded-lg transition-all flex items-center gap-1">
+                                    <Trash2 size={14} /> সব মুছে ফেলুন
+                                 </button>
+                              </div>
                            </div>
                            <div className="overflow-x-auto">
                               <table className="w-full">
@@ -1765,14 +1958,23 @@ export default function App() {
                                        <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">কোড</th>
                                        <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">নাম / মাস</th>
                                        <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right">পরিমাণ</th>
+                                       <th className="py-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest text-right w-10"></th>
                                     </tr>
                                  </thead>
                                  <tbody className="divide-y divide-gray-50">
-                                    {reportsList.slice(0, 10).map((r: any) => (
-                                       <tr key={r.id}>
+                                    {reportsList.slice().sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 50).map((r: any) => (
+                                       <tr key={r.id} className="group hover:bg-gray-50/50">
                                           <td className="py-3 text-sm font-bold text-[#064E3B]">{r.shareholderCode}</td>
-                                          <td className="py-3 text-xs text-gray-500">{r.name ? `${r.name} (${r.phoneNumber})` : r.month}</td>
+                                          <td className="py-3">
+                                             <p className="text-xs font-bold text-[#064E3B]">{r.name || 'অজ্ঞাত'}</p>
+                                             <p className="text-[10px] text-gray-400">{r.month || new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
+                                          </td>
                                           <td className="py-3 text-sm font-bold text-emerald-600 text-right">৳{r.amount}</td>
+                                          <td className="py-3 text-right">
+                                             <button onClick={() => deleteReport(r.id)} className="p-1.5 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-md opacity-0 group-hover:opacity-100 transition-all">
+                                                <Trash2 size={14} />
+                                             </button>
+                                          </td>
                                        </tr>
                                     ))}
                                  </tbody>
@@ -1806,7 +2008,9 @@ export default function App() {
                                     <p className="text-xs text-gray-500 mb-2">{new Date(n.date).toLocaleDateString('bn-BD')}</p>
                                     <p className="text-sm text-gray-600 line-clamp-2">{n.content}</p>
                                  </div>
-                                 <button onClick={() => deleteNotice(n.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-all"><Trash2 size={18} /></button>
+                                 <button onClick={() => deleteNotice(n.id)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all" title="মুছে ফেলুন">
+                                    <Trash2 size={18} />
+                                 </button>
                               </div>
                            ))}
                         </div>
@@ -1819,12 +2023,7 @@ export default function App() {
                             <div className="md:col-span-2">
                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">ছবি আপলোড করুন</label>
                               <div className="relative group overflow-hidden">
-                                <input 
-                                  type="file" 
-                                  accept="image/*" 
-                                  onChange={handleImageUpload}
-                                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                />
+                                <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                                 <div className="w-full py-8 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-2 group-hover:border-[#D4AF37]/50 transition-all bg-gray-50/50">
                                   {galleryForm.url ? (
                                     <div className="flex flex-col items-center gap-2">
@@ -1844,26 +2043,19 @@ export default function App() {
                                 <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">অথবা লিঙ্ক দিন</span>
                                 <span className="h-px bg-gray-100 flex-1"></span>
                               </div>
-                              <input 
-                                type="text" 
-                                value={galleryForm.url} 
-                                onChange={(e) => setGalleryForm({...galleryForm, url: e.target.value})} 
-                                className="w-full mt-3 p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none text-xs" 
-                                placeholder="https://..." 
-                              />
+                              <input type="text" value={galleryForm.url} onChange={(e) => setGalleryForm({...galleryForm, url: e.target.value})} className="w-full mt-3 p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none text-xs" placeholder="https://..." />
                             </div>
                             <div>
                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">তারিখ</label>
                                <input type="text" value={galleryForm.date} onChange={(e) => setGalleryForm({...galleryForm, date: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none" placeholder="যেমন: জানুয়ারি ২০২৪" />
                             </div>
                             <div>
-                              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">ক্যাপশন</label>
-                              <input type="text" value={galleryForm.caption} onChange={(e) => setGalleryForm({...galleryForm, caption: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
+                               <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">ক্যাপশন</label>
+                               <input type="text" value={galleryForm.caption} onChange={(e) => setGalleryForm({...galleryForm, caption: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none focus:ring-2 ring-[#D4AF37]/20 border-none font-bold" />
                             </div>
                           </div>
                           <button onClick={() => addGalleryItem(galleryForm)} className="mt-6 w-full py-4 bg-[#0a192f] text-[#D4AF37] font-bold rounded-2xl shadow-lg border border-[#D4AF37]/30 hover:bg-black transition-all">গ্যালারিতে যোগ করুন</button>
                         </div>
-
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                            {galleryItems.map((item: any) => (
                               <div key={item.id} className="group relative aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-sm">
@@ -1884,7 +2076,6 @@ export default function App() {
                             <Activity size={16} className="text-[#D4AF37]"/>
                           </button>
                         </div>
-                        
                         {isFetchingMessages ? (
                           <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
                         ) : (
@@ -1915,22 +2106,8 @@ export default function App() {
                                      </div>
                                    </div>
                                    <div className="flex items-center gap-2">
-                                     <a 
-                                       href={`https://wa.me/${normalizeWhatsAppNumber(m.number)}`} 
-                                       target="_blank" 
-                                       rel="noopener noreferrer"
-                                       className="p-2.5 text-green-600 hover:bg-green-50 rounded-xl transition-all"
-                                       title="WhatsApp-এ উত্তর দিন"
-                                     >
-                                       <MessageCircle size={18} />
-                                     </a>
-                                     <button 
-                                       onClick={() => deleteMessage(m.id)} 
-                                       className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                                       title="মুছে ফেলুন"
-                                     >
-                                       <Trash2 size={18} />
-                                     </button>
+                                     <a href={`https://wa.me/${normalizeWhatsAppNumber(m.number)}`} target="_blank" rel="noopener noreferrer" className="p-2.5 text-green-600 hover:bg-green-50 rounded-xl transition-all" title="WhatsApp-এ উত্তর দিন"><MessageCircle size={18} /></a>
+                                     <button onClick={() => deleteMessage(m.id)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl transition-all" title="মুছে ফেলুন"><Trash2 size={18} /></button>
                                    </div>
                                  </div>
                                </div>
@@ -2051,6 +2228,16 @@ export default function App() {
                     />
                     <button onClick={searchReport} className="px-6 bg-[#D4AF37] text-[#064E3B] font-bold rounded-2xl hover:bg-[#D4AF37]/90 transition-all shadow-lg active:scale-95"><Search size={20} /></button>
                   </div>
+                  
+                  {/* External Report Link Button */}
+                  <a 
+                    href="https://tinyurl.com/al-insafreport" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full mb-6 flex items-center justify-center gap-2 p-4 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all text-sm"
+                  >
+                     অফিসিয়াল রিপোর্টস দেখুন <ExternalLink size={18} />
+                  </a>
 
                   <div id="search-report-pdf-content" className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4 bg-white">
                     {isFetchingReports ? (
@@ -2070,7 +2257,7 @@ export default function App() {
                               </div>
                             </div>
                             {searchResult.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((r: any) => (
-                              <div key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center">
+                              <div key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center group">
                                 <div>
                                   {r.name ? (
                                     <>
@@ -2084,9 +2271,19 @@ export default function App() {
                                     </>
                                   )}
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-2xl font-serif font-bold text-emerald-600">৳{r.amount}</p>
-                                  {r.premiumAmount > 0 ? <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p> : <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>}
+                                <div className="flex items-center gap-4">
+                                  <div className="text-right">
+                                    <p className="text-2xl font-serif font-bold text-emerald-600">৳{r.amount}</p>
+                                    {r.premiumAmount > 0 ? <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p> : <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>}
+                                  </div>
+                                  {userProfile?.role === 'admin' && (
+                                    <button 
+                                      onClick={() => deleteReport(r.id)} 
+                                      className="p-3 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-2xl transition-all opacity-0 group-hover:opacity-100"
+                                    >
+                                      <Trash2 size={18} />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             ))}
