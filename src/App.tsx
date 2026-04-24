@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as XLSX from 'xlsx';
-import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX, Download, Upload } from 'lucide-react';
+import { Menu, X, Info, Activity, Target, ShieldCheck, UserPlus, Phone, MessageCircle, Mail, ChevronRight, Send, Facebook, Sun, Moon, Users, Wallet, ExternalLink, Lock, MoreVertical, FileText, PieChart, LogIn, LogOut, User, Settings, Plus, Trash2, Edit, LayoutDashboard, Database, MapPin, Search, FileX, Download, Upload, Bell, Package } from 'lucide-react';
 import { LoginModal } from './components/LoginModal';
 import { Footer } from './components/Footer';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
@@ -80,7 +80,7 @@ export default function App() {
   const [editData, setEditData] = useState<any>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [isFetchingUsers, setIsFetchingUsers] = useState(false);
-  const [adminTab, setAdminTab] = useState<'overview' | 'analytics' | 'settings' | 'users' | 'reports' | 'notices' | 'gallery' | 'messages'>('overview');
+  const [adminTab, setAdminTab] = useState<'overview' | 'analytics' | 'settings' | 'users' | 'reports' | 'notices' | 'gallery' | 'messages' | 'notifications'>('overview');
   const [notices, setNotices] = useState<any[]>([]);
   const [galleryItems, setGalleryItems] = useState<any[]>([]);
   const [reportsList, setReportsList] = useState<any[]>([]);
@@ -281,11 +281,14 @@ export default function App() {
 
     const testConnection = async () => {
       try {
-        await getDocFromServer(doc(db, 'test', 'connection'));
+        // Try a soft check first using getDoc (which might use cache)
+        // But the error happens on getDocFromServer
+        const testDoc = doc(db, 'test', 'connection');
+        await getDoc(testDoc);
+        console.log("Firebase connection initialized.");
       } catch (error) {
-        if (error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
-        }
+        console.warn("Initial Firebase connection check warning:", error);
+        // Don't throw a full error yet, as it might connect later
       }
     };
     testConnection();
@@ -1017,8 +1020,33 @@ export default function App() {
       color: 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-400 dark:border-purple-800/50',
       description: 'শেয়ারহোল্ডারদের মাসিক পেমেন্ট এবং প্রিমিয়াম রিপোর্ট যাচাই করুন।',
       content: (
-        <div className="space-y-6 text-gray-700">
-           <p>রিপোর্ট সেকশনটি আপাতত রক্ষণাবেক্ষণাধীন রয়েছে।</p>
+        <div className="space-y-6 text-gray-700 h-full flex flex-col">
+          <div className="text-center p-6 bg-purple-50 rounded-2xl border border-purple-100">
+             <p className="font-bold text-purple-800 text-lg mb-2">রিপোর্ট এবং সদস্যপদ সেবা</p>
+             <p className="text-sm text-purple-600">আপনার প্রয়োজনীয় সেবাটি নির্বাচন করুন</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            <button onClick={() => { /* logic to view report */ }} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all shadow-md">
+              রিপোর্ট দেখুন বা কোড ব্যবহার করুন
+            </button>
+            <button onClick={() => { /* logic to go to member form */ }} className="w-full py-4 bg-[#D4AF37] text-[#064E3B] font-bold rounded-2xl hover:bg-[#D4AF37]/90 transition-all shadow-md">
+              সদস্য হোন
+            </button>
+          </div>
+
+          <div className="flex-1 min-h-[300px] relative rounded-xl overflow-hidden border border-gray-200 shadow-inner bg-gray-50">
+            <iframe 
+              src="https://docs.google.com/forms/d/e/1FAIpQLScJp8A-oix-AylRov4g6Wd-5K0D6n-z-H5Y50L4sVj8JjY2Zg/viewform?embedded=true" 
+              className="absolute inset-0 w-full h-full"
+              frameBorder="0" 
+              marginHeight={0} 
+              marginWidth={0}
+              title="AL-INSAF Report Form"
+            >
+              Loading form...
+            </iframe>
+          </div>
         </div>
       )
     },
@@ -1033,38 +1061,60 @@ export default function App() {
           <div className="bg-[#FDFCF0] p-4 rounded-xl border border-[#D4AF37]/30">
             <h4 className="font-bold text-[#064E3B] mb-2">সদস্য হওয়ার নিয়ম:</h4>
             <ul className="list-disc pl-5 text-sm space-y-1">
-              <li>নির্ধারিত Google Form পূরণ করুন</li>
-              <li>সঠিক তথ্য প্রদান করুন এবং রেফারেন্স উল্লেখ করুন</li>
-              <li>সাবমিট করার পর কর্তৃপক্ষ যাচাই করবে</li>
-              <li>অনুমোদনের পর আপনাকে সদস্য হিসেবে যুক্ত করা হবে</li>
+              <li>নিচের ফর্মটি পূরণ করে সাবমিট করুন।</li>
+              <li>সঠিক তথ্য প্রদান করুন এবং রেফারেন্স উল্লেখ করুন।</li>
+              <li>যাচাই-বাছাই শেষে আপনাকে চূড়ান্ত সদস্য হিসেবে গ্রহণ করা হবে।</li>
             </ul>
           </div>
-
           <div className="flex-1 min-h-[400px] relative rounded-xl overflow-hidden border border-gray-200 shadow-inner bg-gray-50">
             <iframe 
-              src="https://docs.google.com/forms/d/e/1FAIpQLSeiOKo-2D9sl91lJpDzNwHfl8WZZPqPhhqTFAUsJNzAlg1eBw/viewform?embedded=true" 
+              src="https://docs.google.com/forms/d/e/1FAIpQLScJp8A-oix-AylRov4g6Wd-5K0D6n-z-H5Y50L4sVj8JjY2Zg/viewform?embedded=true" 
               className="absolute inset-0 w-full h-full"
               frameBorder="0" 
               marginHeight={0} 
               marginWidth={0}
-              title="AL-INSAF Membership Form"
+              title="AL-INSAF Join Form"
             >
               Loading form...
             </iframe>
           </div>
-
-          <div className="flex items-center justify-center gap-6 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-            <div className="w-24 h-24 p-2 bg-white border border-gray-200 rounded-lg shadow-sm">
-              <QRCode 
-                value="https://docs.google.com/forms/d/e/1FAIpQLSeiOKo-2D9sl91lJpDzNwHfl8WZZPqPhhqTFAUsJNzAlg1eBw/viewform" 
-                size={100}
-                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-              />
-            </div>
-            <div>
-              <p className="font-bold text-[#064E3B]">মোবাইল থেকে যুক্ত হোন</p>
-              <p className="text-xs text-gray-500 mt-1">QR কোডটি স্ক্যান করে সরাসরি<br/>ফর্মে প্রবেশ করুন।</p>
-            </div>
+        </div>
+      )
+    },
+    {
+      id: 'products',
+      title: 'আমাদের পণ্য',
+      icon: <Package size={32} />,
+      color: 'bg-green-50 text-green-600 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/50',
+      description: 'আমাদের নিজস্ব উৎপাদিত বা বাজারজাতকৃত পণ্যসমূহ দেখুন।',
+      content: (
+        <div className="space-y-6 text-center py-10">
+          <div className="w-20 h-20 mx-auto bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 border-2 border-green-200">
+             <Package size={40} />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800">আমাদের পণ্য ও সার্ভিস</h3>
+          <p className="text-gray-500">এই ফিচারটি নিয়ে আমাদের ডেভেলপমেন্ট টিম কাজ করছে। খুব শিগগিরই এখানে আমাদের সকল পণ্য তালিকাভুক্ত করা হবে ইনশাআল্লাহ।</p>
+          <div className="inline-block mt-4 px-4 py-1.5 bg-yellow-100 text-yellow-700 text-sm font-bold rounded-full">
+            শীঘ্রই আসছে...
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'premium',
+      title: 'প্রিমিয়াম জমা',
+      icon: <Wallet size={32} />,
+      color: 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/50',
+      description: 'আপনার মাসিক প্রিমিয়াম বা অন্যান্য ফান্ড পেমেন্ট করুন।',
+      content: (
+        <div className="space-y-6 text-center py-10">
+          <div className="w-20 h-20 mx-auto bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 border-2 border-blue-200">
+             <Wallet size={40} />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800">অনলাইন পেমেন্ট গেটওয়ে</h3>
+          <p className="text-gray-500">বিকাশ, নগদ, রকেটের মতো পেমেন্ট সিস্টেমের সাথে ইন্টিগ্রেশনের কাজ চলছে। শীঘ্রই আপনি অ্যাপ থেকেই প্রিমিয়াম জমা দিতে পারবেন।</p>
+          <div className="inline-block mt-4 px-4 py-1.5 bg-yellow-100 text-yellow-700 text-sm font-bold rounded-full">
+            শীঘ্রই আসছে...
           </div>
         </div>
       )
@@ -1310,22 +1360,43 @@ export default function App() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="flex flex-col items-center">
               <div className="mb-8 relative">
                 <motion.div animate={{ rotate: -360 }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} className="absolute -inset-4 border border-[#D4AF37]/30 rounded-full" />
-                <div className="w-24 h-24 md:w-32 bg-[#0a192f] rounded-full p-2 shadow-2xl border-2 border-[#D4AF37] overflow-hidden flex items-center justify-center">
+                <div className="w-16 h-16 md:w-32 md:h-32 bg-[#0a192f] rounded-full p-1.5 md:p-2 shadow-2xl border-2 border-[#D4AF37] overflow-hidden flex items-center justify-center">
                   <img src={logo} alt="Al-Insaf Logo" className="w-full h-full object-contain scale-110" referrerPolicy="no-referrer" />
                 </div>
               </div>
               <span className="text-[#D4AF37] font-medium tracking-widest uppercase text-sm mb-4 block">
                 আল-ইনসাফ এ আপনাকে স্বাগতম
               </span>
-              <h1 className="font-serif text-4xl md:text-6xl font-bold mb-6">নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span></h1>
-              <p className="text-lg text-gray-200 max-w-2xl mx-auto mb-10 font-light leading-relaxed">স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ।</p>
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                {(siteContent?.showJoinButton ?? true) && (
-                  <button onClick={() => openModal('join')} className="bg-[#D4AF37] text-[#064E3B] px-8 py-4 rounded-full font-bold text-lg hover:bg-white transition-all transform hover:-translate-y-1 w-full sm:w-auto">সদস্য হোন</button>
-                )}
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 px-6 py-4 rounded-full flex items-center gap-3 shadow-lg w-full sm:w-auto">
-                  <div className="w-10 h-10 bg-[#D4AF37] rounded-full flex items-center justify-center text-[#064E3B]"><Users size={20} /></div>
-                  <div className="text-left"><p className="text-xs text-gray-300 uppercase font-bold tracking-wider">আমাদের পরিবার</p><p className="text-lg font-bold text-white">{siteContent?.memberCount || "২০০+"} সদস্য</p></div>
+              <h1 className="font-serif text-3xl md:text-6xl font-bold mb-4 md:mb-6 leading-tight">নৈতিকতা ও আস্থার মাধ্যমে<br/><span className="text-[#D4AF37]">সমাজের ক্ষমতায়ন</span></h1>
+              <p className="text-base md:text-lg text-white/90 max-w-2xl mx-auto mb-8 md:mb-10 font-light leading-relaxed px-4">স্বচ্ছতা, ন্যায্যতা এবং পারস্পরিক সহযোগিতার ভিত্তিতে গড়ে ওঠা একটি আর্থ-সামাজিক উদ্যোগ।</p>
+              <div className="w-full max-w-3xl mx-auto mt-8 md:mt-12 bg-white/10 backdrop-blur-md rounded-3xl p-4 md:p-6 shadow-2xl border border-white/20">
+                <div className="grid grid-cols-4 sm:grid-cols-4 gap-4 md:gap-8">
+                  {[
+                    { id: 'report', label: 'রিপোর্ট', icon: <PieChart size={24} />, color: 'bg-[#D4AF37] text-white', highlight: true },
+                    { id: 'premium', label: 'প্রিমিয়াম জমা', icon: <Wallet size={24} />, color: 'bg-white/20 text-white hover:bg-white/30', highlight: false },
+                    { id: 'products', label: 'পণ্য', icon: <Package size={24} />, color: 'bg-white/20 text-white hover:bg-white/30', highlight: false },
+                    { id: 'join', label: 'সদস্য হোন', icon: <UserPlus size={24} />, color: 'bg-white/20 text-white hover:bg-white/30', highlight: false },
+                    { id: 'progress', label: 'কার্যক্রম', icon: <Activity size={24} />, color: 'bg-white/20 text-white hover:bg-white/30', highlight: false, targetId: 'progress' },
+                    { id: 'contact', label: 'যোগাযোগ', icon: <Phone size={24} />, color: 'bg-white/20 text-white hover:bg-white/30', highlight: false, section: 'contact' },
+                    { id: 'about', label: 'পরিচিতি', icon: <Info size={24} />, color: 'bg-white/20 text-white hover:bg-white/30', highlight: false, section: 'about' },
+                    { id: 'more', label: 'অন্যান্য', icon: <MoreVertical size={24} />, color: 'bg-white/20 text-white hover:bg-white/30', highlight: false, section: 'explore' },
+                  ].map((item, i) => (
+                    <button 
+                      key={i} 
+                      onClick={() => {
+                        if (item.section) scrollToSection(item.section);
+                        else openModal(item.targetId || item.id);
+                      }}
+                      className="flex flex-col items-center gap-2 group transition-all"
+                    >
+                      <div className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:-translate-y-1 group-active:scale-95 shadow-lg border border-white/10 ${item.color}`}>
+                        {item.icon}
+                      </div>
+                      <span className={`text-[10px] md:text-sm font-semibold tracking-wide ${item.highlight ? 'text-[#D4AF37]' : 'text-white/90'}`}>
+                        {item.label}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </motion.div>
@@ -1339,7 +1410,7 @@ export default function App() {
               <div className="w-16 h-1 bg-[#D4AF37] mx-auto rounded-full"></div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-              {cardData.map((card, idx) => (
+              {cardData.filter(card => !['report', 'join', 'products', 'premium', 'progress'].includes(card.id)).map((card, idx) => (
                 <motion.button key={idx} onClick={() => openModal(card.id)} whileHover={{ y: -8, scale: 1.02 }} whileTap={{ scale: 0.98 }} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }} className={`${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-[#D4AF37]/20 shadow-sm'} p-5 sm:p-8 rounded-2xl border transition-all text-left flex flex-col group`}>
                   <div className="flex items-center gap-4 sm:flex-col sm:items-start sm:gap-0 sm:mb-6">
                     <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-[#064E3B] group-hover:text-white transition-all duration-300 ${isDarkMode ? 'bg-gray-800' : card.color}`}>
@@ -1591,6 +1662,9 @@ export default function App() {
                     </button>
                     <button onClick={() => { setAdminTab('messages'); setIsEditing(null); fetchMessages(); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'messages' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                       <Mail size={16} /> মেসেজ
+                    </button>
+                    <button onClick={() => { setAdminTab('notifications'); setIsEditing(null); setEditData({ ...siteContent }); }} className={`px-4 py-4 text-xs font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap ${adminTab === 'notifications' ? 'border-[#D4AF37] text-[#064E3B]' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                      <Bell size={16} /> নোটিফিকেশন সেটিংস
                     </button>
                   </div>
 
@@ -2164,6 +2238,54 @@ export default function App() {
                              ))}
                           </div>
                         )}
+                      </div>
+                    ) : adminTab === 'notifications' ? (
+                      <div className="space-y-6 animate-in fade-in duration-500">
+                        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+                          <h3 className="font-serif text-xl font-bold text-[#064E3B] mb-6 flex items-center gap-2"><Bell className="text-[#D4AF37]" size={24} /> নোটিফিকেশন কনফিগারেশন (Notifications)</h3>
+                          <p className="text-xs text-gray-500 mb-6">গুরুত্বপূর্ণ ইভেন্ট যেমন নতুন মেসেজ বা রিপোর্ট সাবমিশনের জন্য নোটিফিকেশন সেটআপ করুন।</p>
+                          <div className="space-y-6">
+                            
+                            <div className="space-y-4 pb-4 border-b border-gray-100">
+                              <h4 className="font-bold text-gray-700 text-sm">অ্যাডমিন ইমেইল স্পেসিফিকেশন</h4>
+                              <div className="space-y-1">
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">নোটিফিকেশন ইমেইল অ্যাড্রেস</label>
+                                <input value={editData?.notificationEmail || ""} onChange={(e) => setEditData({...editData, notificationEmail: e.target.value})} className="w-full p-3 bg-gray-50 rounded-xl outline-none text-sm border-none focus:ring-1 ring-[#D4AF37]/30" placeholder="admin@example.com" />
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-4 pb-4 border-b border-gray-100">
+                              <h4 className="font-bold text-gray-700 text-sm">নতুন মেসেজ (New Messages)</h4>
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={editData?.notifyEmailMessage ?? true} onChange={(e) => setEditData({...editData, notifyEmailMessage: e.target.checked})} id="notifyEmailMessage" className="accent-[#064E3B] w-4 h-4 rounded cursor-pointer" />
+                                <label htmlFor="notifyEmailMessage" className="text-sm font-bold text-gray-600 cursor-pointer">ইমেইল নোটিফিকেশন পাঠান</label>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={editData?.notifyAppMessage ?? true} onChange={(e) => setEditData({...editData, notifyAppMessage: e.target.checked})} id="notifyAppMessage" className="accent-[#064E3B] w-4 h-4 rounded cursor-pointer" />
+                                <label htmlFor="notifyAppMessage" className="text-sm font-bold text-gray-600 cursor-pointer">অ্যাপের ভেতরে নোটিফিকেশন দেখান</label>
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 pb-4 border-b border-gray-100">
+                              <h4 className="font-bold text-gray-700 text-sm">নতুন রিপোর্ট সাবমিশন (New Reports)</h4>
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={editData?.notifyEmailReport ?? true} onChange={(e) => setEditData({...editData, notifyEmailReport: e.target.checked})} id="notifyEmailReport" className="accent-[#064E3B] w-4 h-4 rounded cursor-pointer" />
+                                <label htmlFor="notifyEmailReport" className="text-sm font-bold text-gray-600 cursor-pointer">ইমেইল নোটিফিকেশন পাঠান</label>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <input type="checkbox" checked={editData?.notifyAppReport ?? false} onChange={(e) => setEditData({...editData, notifyAppReport: e.target.checked})} id="notifyAppReport" className="accent-[#064E3B] w-4 h-4 rounded cursor-pointer" />
+                                <label htmlFor="notifyAppReport" className="text-sm font-bold text-gray-600 cursor-pointer">অ্যাপের ভেতরে নোটিফিকেশন দেখান</label>
+                              </div>
+                            </div>
+
+                            <button 
+                              onClick={handleSaveContent} 
+                              className={`w-full py-4 text-white font-bold rounded-xl mt-4 shadow-lg transition-all ${saveSuccess ? 'bg-green-500 shadow-green-100' : 'bg-[#064E3B] shadow-emerald-100'}`}
+                            >
+                              {saveSuccess ? 'সাফল্যের সাথে সেভ হয়েছে!' : 'পরিবর্তন সেভ করুন'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ) : null}
                   </div>
