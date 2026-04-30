@@ -1021,32 +1021,100 @@ export default function App() {
       description: 'শেয়ারহোল্ডারদের মাসিক পেমেন্ট এবং প্রিমিয়াম রিপোর্ট যাচাই করুন।',
       content: (
         <div className="space-y-6 text-gray-700 h-full flex flex-col">
-          <div className="text-center p-6 bg-purple-50 rounded-2xl border border-purple-100">
-             <p className="font-bold text-purple-800 text-lg mb-2">রিপোর্ট এবং সদস্যপদ সেবা</p>
-             <p className="text-sm text-purple-600">আপনার প্রয়োজনীয় সেবাটি নির্বাচন করুন</p>
-          </div>
+          {(() => {
+            const [view, setView] = useState<'main' | 'membership' | 'official_reports'>('main');
+            const [showReportText, setShowReportText] = useState(false);
 
-          <div className="grid grid-cols-1 gap-4">
-            <button onClick={() => { /* logic to view report */ }} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all shadow-md">
-              রিপোর্ট দেখুন বা কোড ব্যবহার করুন
-            </button>
-            <button onClick={() => { /* logic to go to member form */ }} className="w-full py-4 bg-[#D4AF37] text-[#064E3B] font-bold rounded-2xl hover:bg-[#D4AF37]/90 transition-all shadow-md">
-              সদস্য হোন
-            </button>
-          </div>
+            if (view === 'membership') {
+              return (
+                <div className="flex-1 flex flex-col">
+                  <button onClick={() => setView('main')} className="mb-4 text-sm text-gray-500 hover:text-gray-800 flex items-center">
+                    <ChevronRight className="rotate-180 mr-1" size={16} /> ফিরে যান
+                  </button>
+                  <div className="flex-1 min-h-[400px] relative rounded-xl overflow-hidden border border-gray-200 shadow-inner bg-gray-50">
+                    <iframe 
+                      src="https://docs.google.com/forms/d/e/1FAIpQLScJp8A-oix-AylRov4g6Wd-5K0D6n-z-H5Y50L4sVj8JjY2Zg/viewform?embedded=true" 
+                      className="absolute inset-0 w-full h-full"
+                      frameBorder="0" 
+                      title="AL-INSAF Membership Form"
+                    />
+                  </div>
+                </div>
+              );
+            }
 
-          <div className="flex-1 min-h-[300px] relative rounded-xl overflow-hidden border border-gray-200 shadow-inner bg-gray-50">
-            <iframe 
-              src="https://docs.google.com/forms/d/e/1FAIpQLScJp8A-oix-AylRov4g6Wd-5K0D6n-z-H5Y50L4sVj8JjY2Zg/viewform?embedded=true" 
-              className="absolute inset-0 w-full h-full"
-              frameBorder="0" 
-              marginHeight={0} 
-              marginWidth={0}
-              title="AL-INSAF Report Form"
-            >
-              Loading form...
-            </iframe>
-          </div>
+            if (view === 'official_reports') {
+              return (
+                <div className="flex-1 flex flex-col">
+                  <button onClick={() => setView('main')} className="mb-4 text-sm text-gray-500 hover:text-gray-800 flex items-center">
+                    <ChevronRight className="rotate-180 mr-1" size={16} /> ফিরে যান
+                  </button>
+                  <div className="space-y-4">
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center shrink-0">
+                        <FileText size={20} />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-800 text-sm">অফিসিয়াল রিপোর্টস</h4>
+                        <p className="text-xs text-gray-500">আপনার প্রয়োজনীয় অর্থবছরটি নির্বাচন করুন</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      <button 
+                        onClick={() => window.open('https://script.google.com/macros/s/AKfycbzeiKHPOsKtcaZT7uEA8ud5CsUFjKSKwK29tX9i5_wxPEb0tHPDYzlEdNAwaZCcjMpjVg/exec', '_blank')}
+                        className="group relative flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl hover:border-[#D4AF37] hover:shadow-md transition-all text-left"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">Fiscal Year</span>
+                          <span className="text-lg font-bold text-gray-800">2025 - 2026</span>
+                          <span className="text-[10px] text-gray-500 mt-1">এপ্রিল ২০২৫ - মার্চ ২০২৬ (লেনদেন ইতিহাস)</span>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#064E3B] group-hover:text-white transition-all">
+                          <ExternalLink size={16} />
+                        </div>
+                      </button>
+
+                      <button 
+                        onClick={() => window.open('https://script.google.com/macros/s/AKfycbyilXZ7wDW8JBxTuDVLdw110WdV8ySO6tyEU0NrxX-Nt3guBjmqWnsyKn-J5b6akIG1IA/exec', '_blank')}
+                        className="group relative flex items-center justify-between p-4 bg-white border border-gray-200 rounded-2xl hover:border-[#D4AF37] hover:shadow-md transition-all text-left"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">Fiscal Year</span>
+                          <span className="text-lg font-bold text-gray-800">2026 - 2027</span>
+                          <span className="text-[10px] text-gray-500 mt-1">এপ্রিল ২০২৬ - মার্চ ২০২৭ (চলতি অর্থবছর)</span>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#064E3B] group-hover:text-white transition-all">
+                          <ExternalLink size={16} />
+                        </div>
+                      </button>
+                    </div>
+                    
+                    <p className="text-[10px] text-center text-gray-400 italic px-4">
+                      * রিপোর্ট দেখার সময় আপনার প্রদানকৃত মেম্বার কোড বা আইডি ব্যবহার করতে হতে পারে।
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-6">
+                <div className="text-center p-6 bg-green-50 rounded-2xl border border-green-100">
+                   <p className="font-bold text-[#064E3B] text-lg mb-2">রিপোর্ট এবং সদস্যপদ সেবা</p>
+                   <p className="text-sm text-green-700">আপনার প্রয়োজনীয় সেবাটি নির্বাচন করুন</p>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <button onClick={() => setView('official_reports')} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all shadow-md">
+                    রিপোর্ট দেখুন বা কোড ব্যবহার করুন
+                  </button>
+                  <button onClick={() => setView('membership')} className="w-full py-4 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all shadow-md">
+                    সদস্য হোন
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )
     },
@@ -1077,6 +1145,44 @@ export default function App() {
             >
               Loading form...
             </iframe>
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'products',
+      title: 'আমাদের পণ্য',
+      icon: <Package size={32} />,
+      color: 'bg-green-50 text-green-600 border-green-100 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/50',
+      description: 'আমাদের নিজস্ব উৎপাদিত বা বাজারজাতকৃত পণ্যসমূহ দেখুন।',
+      content: (
+        <div className="space-y-6 text-center py-10">
+          <div className="w-20 h-20 mx-auto bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4 border-2 border-green-200">
+             <Package size={40} />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800">আমাদের পণ্য ও সার্ভিস</h3>
+          <p className="text-gray-500">এই ফিচারটি নিয়ে আমাদের ডেভেলপমেন্ট টিম কাজ করছে। খুব শিগগিরই এখানে আমাদের সকল পণ্য তালিকাভুক্ত করা হবে ইনশাআল্লাহ।</p>
+          <div className="inline-block mt-4 px-4 py-1.5 bg-yellow-100 text-yellow-700 text-sm font-bold rounded-full">
+            শীঘ্রই আসছে...
+          </div>
+        </div>
+      )
+    },
+    {
+      id: 'premium',
+      title: 'প্রিমিয়াম জমা',
+      icon: <Wallet size={32} />,
+      color: 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/50',
+      description: 'আপনার মাসিক প্রিমিয়াম বা অন্যান্য ফান্ড পেমেন্ট করুন।',
+      content: (
+        <div className="space-y-6 text-center py-10">
+          <div className="w-20 h-20 mx-auto bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 border-2 border-blue-200">
+             <Wallet size={40} />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800">অনলাইন পেমেন্ট গেটওয়ে</h3>
+          <p className="text-gray-500">বিকাশ, নগদ, রকেটের মতো পেমেন্ট সিস্টেমের সাথে ইন্টিগ্রেশনের কাজ চলছে। শীঘ্রই আপনি অ্যাপ থেকেই প্রিমিয়াম জমা দিতে পারবেন।</p>
+          <div className="inline-block mt-4 px-4 py-1.5 bg-yellow-100 text-yellow-700 text-sm font-bold rounded-full">
+            শীঘ্রই আসছে...
           </div>
         </div>
       )
@@ -2393,15 +2499,68 @@ export default function App() {
                     <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
                   </div>
                   
-                  {/* External Report Link Button */}
-                  <a 
-                    href="https://tinyurl.com/al-insafreport" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-full mb-6 flex items-center justify-center gap-2 p-6 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-[#064E3B]/90 transition-all text-lg shadow-lg"
-                  >
-                     অফিসিয়াল রিপোর্টস দেখুন <ExternalLink size={20} />
-                  </a>
+                  {/* Official Reports Selection */}
+                  <div className="mb-8 space-y-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-1 h-6 bg-[#D4AF37] rounded-full"></div>
+                      <h3 className="font-bold text-[#064E3B]">অফিসিয়াল বাৎসরিক রিপোর্ট</h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <button 
+                        onClick={() => window.open('https://script.google.com/macros/s/AKfycbzeiKHPOsKtcaZT7uEA8ud5CsUFjKSKwK29tX9i5_wxPEb0tHPDYzlEdNAwaZCcjMpjVg/exec', '_blank')}
+                        className="group relative flex items-center justify-between p-5 bg-white border border-gray-200 rounded-[2rem] hover:border-[#D4AF37] hover:shadow-xl transition-all text-left"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">Fiscal Year</span>
+                          <span className="text-xl font-bold text-gray-800">2025 - 2026</span>
+                          <span className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">লেনদেন ইতিহাস (এপ্রিল-মার্চ)</span>
+                        </div>
+                        <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#064E3B] group-hover:text-white transition-all shadow-sm">
+                          <ExternalLink size={20} />
+                        </div>
+                      </button>
+
+                      <button 
+                        onClick={() => window.open('https://script.google.com/macros/s/AKfycbyilXZ7wDW8JBxTuDVLdw110WdV8ySO6tyEU0NrxX-Nt3guBjmqWnsyKn-J5b6akIG1IA/exec', '_blank')}
+                        className="group relative flex items-center justify-between p-5 bg-white border border-gray-200 rounded-[2rem] hover:border-[#D4AF37] hover:shadow-xl transition-all text-left"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-widest">Fiscal Year</span>
+                          <span className="text-xl font-bold text-gray-800">2026 - 2027</span>
+                          <span className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">চলতি অর্থবছর (রানিং)</span>
+                        </div>
+                        <div className="w-10 h-10 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-300 group-hover:bg-[#064E3B] group-hover:text-white transition-all shadow-sm">
+                          <ExternalLink size={20} />
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="mb-8 relative">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-1 h-6 bg-[#064E3B] rounded-full"></div>
+                      <h3 className="font-bold text-[#064E3B]">ব্যক্তিগত রিপোর্ট সার্চ</h3>
+                    </div>
+                    <div className="relative group">
+                      <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#D4AF37] transition-colors">
+                        <Search size={24} />
+                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="আপনার মেম্বার কোড দিন (উদা: INS-101)..." 
+                        value={reportSearchCode}
+                        onChange={(e) => setReportSearchCode(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && searchReport()}
+                        className="w-full pl-14 pr-32 py-5 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:border-[#D4AF37] focus:ring-8 focus:ring-[#D4AF37]/5 transition-all font-bold text-[#064E3B] shadow-inner text-lg"
+                      />
+                      <button 
+                        onClick={searchReport}
+                        className="absolute right-3 top-3 bottom-3 px-8 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-black transition-all shadow-lg active:scale-95"
+                      >
+                        সার্চ করুন
+                      </button>
+                    </div>
+                  </div>
 
                   <div id="search-report-pdf-content" className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4">
 
