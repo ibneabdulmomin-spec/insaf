@@ -1536,8 +1536,8 @@ export default function App() {
         {notices.length > 0 && (
           <section className={`py-20 border-t ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
-                <div>
+              <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6 mb-12 text-center md:text-left">
+                <div className="flex flex-col items-center md:items-start">
                   <h2 className={`font-serif text-3xl md:text-4xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-[#064E3B]'}`}>নোটিশ বোর্ড</h2>
                   <div className="w-16 h-1 bg-[#D4AF37] rounded-full"></div>
                 </div>
@@ -2536,105 +2536,8 @@ export default function App() {
                     </div>
                   </div>
 
-                  <div className="mb-8 relative">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className="w-1 h-6 bg-[#064E3B] rounded-full"></div>
-                      <h3 className="font-bold text-[#064E3B]">ব্যক্তিগত রিপোর্ট সার্চ</h3>
-                    </div>
-                    <div className="relative group">
-                      <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-[#D4AF37] transition-colors">
-                        <Search size={24} />
-                      </div>
-                      <input 
-                        type="text" 
-                        placeholder="আপনার মেম্বার কোড দিন (উদা: INS-101)..." 
-                        value={reportSearchCode}
-                        onChange={(e) => setReportSearchCode(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && searchReport()}
-                        className="w-full pl-14 pr-32 py-5 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:bg-white focus:border-[#D4AF37] focus:ring-8 focus:ring-[#D4AF37]/5 transition-all font-bold text-[#064E3B] shadow-inner text-lg"
-                      />
-                      <button 
-                        onClick={searchReport}
-                        className="absolute right-3 top-3 bottom-3 px-8 bg-[#064E3B] text-white font-bold rounded-2xl hover:bg-black transition-all shadow-lg active:scale-95"
-                      >
-                        সার্চ করুন
-                      </button>
-                    </div>
-                  </div>
-
-                  <div id="search-report-pdf-content" className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4">
-
-                    {isFetchingReports ? (
-                      <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#D4AF37]"></div></div>
-                    ) : (
-                      <div className="space-y-4 pb-4">
-                        {searchResult.length > 0 ? (
-                          <>
-                            <div className="bg-gray-50 p-4 rounded-xl mb-4 border border-gray-100 flex justify-between items-center">
-                              <div>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">শেয়ারহোল্ডার কোড</p>
-                                <h3 className="text-xl font-bold text-[#064E3B]">{reportSearchCode.toUpperCase()}</h3>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">মোট জমা</p>
-                                <h3 className="text-xl font-bold text-emerald-600">৳{searchResult.reduce((sum, r) => sum + (r.amount || 0), 0)}</h3>
-                              </div>
-                            </div>
-                            {searchResult.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((r: any) => (
-                              <div key={r.id} className="p-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm flex justify-between items-center group">
-                                <div>
-                                  {r.name ? (
-                                    <>
-                                       <p className="font-bold text-[#064E3B] text-lg">{r.name}</p>
-                                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{r.phoneNumber || '...'}</p>
-                                    </>
-                                  ) : (
-                                    <>
-                                       <p className="font-bold text-[#064E3B] text-lg">{r.month}</p>
-                                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>
-                                    </>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="text-right">
-                                    <p className="text-2xl font-serif font-bold text-emerald-600">৳{r.amount}</p>
-                                    {r.premiumAmount > 0 ? <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest">প্রিমিয়াম: ৳{r.premiumAmount}</p> : <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{new Date(r.timestamp).toLocaleDateString('bn-BD')}</p>}
-                                  </div>
-                                  {userProfile?.role === 'admin' && (
-                                    <button 
-                                      onClick={() => deleteReport(r.id)} 
-                                      className="p-3 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-2xl transition-all opacity-0 group-hover:opacity-100"
-                                    >
-                                      <Trash2 size={18} />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </>
-                        ) : reportSearchCode && !isFetchingReports ? (
-                          <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border-2 border-dashed border-gray-200">
-                             <FileX size={48} className="mx-auto text-gray-300 mb-4" />
-                             <p className="text-gray-400 font-serif italic">কোন তথ্য পাওয়া যায়নি</p>
-                          </div>
-                        ) : (
-                          <div className="text-center py-20 opacity-30">
-                             <Search size={48} className="mx-auto text-gray-300 mb-4" />
-                             <p className="text-gray-400">আপনার কোড লিখে সার্চ করুন</p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="pt-4 border-t flex justify-between items-center shrink-0">
-                    {searchResult.length > 0 ? (
-                      <button onClick={() => handleExportPDF('search-report-pdf-content', `report_${reportSearchCode}`)} className="px-6 py-2.5 bg-emerald-50 text-[#064E3B] font-bold rounded-2xl shadow-sm border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center gap-2">
-                        <Download size={18} />
-                        PDF ডাউনলোড
-                      </button>
-                    ) : <div />}
-                    <button onClick={closeModal} className="px-8 py-2.5 bg-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-200 transition-all">বন্ধ করুন</button>
+                  <div className="pt-8 flex justify-center shrink-0">
+                    <button onClick={closeModal} className="px-16 py-4 bg-[#064E3B] text-white font-bold rounded-[2rem] shadow-xl border border-[#064E3B]/20 hover:bg-black transition-all transform active:scale-95">বন্ধ করুন</button>
                   </div>
                 </div>
               ) : activeModal === 'members-directory' ? (
