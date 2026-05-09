@@ -161,6 +161,36 @@ export default function App() {
     }
   }, []);
   useEffect(() => {
+    // Test Firestore connection on boot with retries
+    const testConnection = async (retries = 3) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          // Try to fetch a single document from a known collection or even a non-existent one
+          // just to test connectivity. getDocFromServer bypasses cache.
+          await getDocFromServer(doc(db, 'settings', 'site_content'));
+          console.log("Firestore connection successful.");
+          return;
+        } catch (error: any) {
+          console.warn(`Firestore connection attempt ${i + 1} failed:`, error.message);
+          
+          const isTimeout = error?.message?.includes('Backend didn\'t respond') || error?.message?.includes('10 seconds');
+          const isOffline = error?.message?.includes('the client is offline');
+          
+          if (i === retries - 1) {
+            if (isOffline || isTimeout) {
+              console.error("Critical Firestore connection issue: Offline or Timeout.");
+              showToast("সার্ভারের সাথে সংযোগ স্থাপন করা যাচ্ছে না (Network Timeout)। দয়া করে আপনার ইন্টারনেট চেক করুন এবং পেজটি রিফ্রেশ দিন।", 'error');
+            } else {
+              console.error("Firestore connectivity issue:", error);
+            }
+          }
+          // Exponential backoff before retry
+          await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+        }
+      }
+    };
+    testConnection();
+
     const contentDocRef = doc(db, 'settings', 'site_content');
     const unsubscribe = onSnapshot(contentDocRef, (docSnap) => {
       if (docSnap.exists()) {
